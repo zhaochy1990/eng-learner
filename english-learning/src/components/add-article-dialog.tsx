@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ import {
   ClipboardPaste,
   Link,
   Sparkles,
-  Search,
+  Rss,
   Loader2,
 } from "lucide-react";
 import { apiUrl } from "@/lib/api";
@@ -62,9 +62,23 @@ export function AddArticleDialog({
   const [aiLength, setAiLength] = useState("medium");
   const [aiMessage, setAiMessage] = useState("");
 
-  // Web Search tab state
+  // Web Search (Browse) tab state
+  const [feedCategory, setFeedCategory] = useState("all");
   const [searchKeywords, setSearchKeywords] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    { title: string; url: string; snippet: string; source?: string; category?: string; pubDate?: string | null }[]
+  >([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const feedsLoadedRef = useRef(false);
+  const [extracting, setExtracting] = useState(false);
+  const [extractedData, setExtractedData] = useState(false);
+  const [searchTitle, setSearchTitle] = useState("");
+  const [searchContent, setSearchContent] = useState("");
+  const [searchDifficulty, setSearchDifficulty] = useState("intermediate");
+  const [searchCategory, setSearchCategory] = useState("general");
+  const [searchSourceUrl, setSearchSourceUrl] = useState("");
+  const [searchSummary, setSearchSummary] = useState("");
 
   function resetForm() {
     setPasteTitle("");
@@ -82,8 +96,20 @@ export function AddArticleDialog({
     setAiDifficulty("intermediate");
     setAiLength("medium");
     setAiMessage("");
+    setFeedCategory("all");
     setSearchKeywords("");
     setSearchMessage("");
+    setSearchResults([]);
+    setSearchLoading(false);
+    feedsLoadedRef.current = false;
+    setExtracting(false);
+    setExtractedData(false);
+    setSearchTitle("");
+    setSearchContent("");
+    setSearchDifficulty("intermediate");
+    setSearchCategory("general");
+    setSearchSourceUrl("");
+    setSearchSummary("");
     setActiveTab("paste");
   }
 
@@ -112,6 +138,12 @@ export function AddArticleDialog({
       difficulty = importDifficulty;
       category = importCategory;
       source_url = importUrl.trim() || undefined;
+    } else if (activeTab === "search") {
+      title = searchTitle.trim();
+      content = searchContent.trim();
+      difficulty = searchDifficulty;
+      category = searchCategory;
+      source_url = searchSourceUrl || undefined;
     } else {
       return;
     }
@@ -120,12 +152,17 @@ export function AddArticleDialog({
       return;
     }
 
+    let summary: string | undefined;
+    if (activeTab === "search" && searchSummary) {
+      summary = searchSummary;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch(apiUrl("/api/articles"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, difficulty, category, source_url }),
+        body: JSON.stringify({ title, content, difficulty, category, source_url, summary }),
       });
 
       if (res.ok) {
@@ -153,14 +190,89 @@ export function AddArticleDialog({
     );
   }
 
-  function handleWebSearch() {
-    if (!searchKeywords.trim()) return;
-    setSearchMessage("Web search integration coming soon!");
+  async function handleBrowseFeeds(category?: string, keywords?: string) {
+    setSearchMessage("");
+    setSearchLoading(true);
+    setSearchResults([]);
+    setExtractedData(false);
+    try {
+      const params = new URLSearchParams();
+      const cat = category ?? feedCategory;
+      if (cat && cat !== "all") params.set("category", cat);
+      const q = keywords ?? searchKeywords.trim();
+      if (q) params.set("q", q);
+      const qs = params.toString();
+      const res = await fetch(apiUrl(`/api/search${qs ? `?${qs}` : ""}`));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSearchMessage(data.error || "Failed to load feeds");
+        return;
+      }
+      const results = await res.json();
+      if (results.length === 0) {
+        setSearchMessage("No articles found. Try a different category or keywords.");
+        return;
+      }
+      setSearchResults(results);
+    } catch {
+      setSearchMessage("Failed to load feeds. Check your connection.");
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  // Auto-load feeds when Browse tab is first opened
+  useEffect(() => {
+    if (activeTab !== "search" || feedsLoadedRef.current) return;
+    feedsLoadedRef.current = true;
+    (async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(apiUrl("/api/search"));
+        if (!res.ok) return;
+        const results = await res.json();
+        if (results.length > 0) setSearchResults(results);
+      } catch {
+        // ignore — user can click Browse manually
+      } finally {
+        setSearchLoading(false);
+      }
+    })();
+  }, [activeTab]);
+
+  async function handleExtract(url: string) {
+    setExtracting(true);
+    setSearchMessage("");
+    try {
+      const res = await fetch(apiUrl("/api/search/extract"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSearchMessage(data.error || "Extraction failed");
+        return;
+      }
+      const data = await res.json();
+      setSearchTitle(data.title || "");
+      setSearchContent(data.content || "");
+      setSearchDifficulty(data.difficulty || "intermediate");
+      setSearchCategory(data.category || "general");
+      setSearchSummary(data.summary || "");
+      setSearchSourceUrl(url);
+      setExtractedData(true);
+    } catch {
+      setSearchMessage("Extraction request failed. Check your connection.");
+    } finally {
+      setExtracting(false);
+    }
   }
 
   const canSubmit =
     (activeTab === "paste" && pasteTitle.trim() && pasteContent.trim()) ||
-    (activeTab === "import" && importTitle.trim() && importContent.trim());
+    (activeTab === "import" && importTitle.trim() && importContent.trim()) ||
+    (activeTab === "search" && searchTitle.trim() && searchContent.trim());
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -184,8 +296,8 @@ export function AddArticleDialog({
               AI
             </TabsTrigger>
             <TabsTrigger value="search" className="flex items-center gap-1.5">
-              <Search className="size-3.5" />
-              Search
+              <Rss className="size-3.5" />
+              Browse
             </TabsTrigger>
           </TabsList>
 
@@ -392,36 +504,170 @@ export function AddArticleDialog({
             </div>
           </TabsContent>
 
-          {/* Tab 4: Web Search */}
+          {/* Tab 4: Browse RSS Feeds */}
           <TabsContent value="search" className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Search Keywords</label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="e.g., technology trends 2026"
-                  value={searchKeywords}
-                  onChange={(e) => setSearchKeywords(e.target.value)}
-                />
+            {!extractedData ? (
+              <>
+                <div className="flex gap-2">
+                  <Select
+                    value={feedCategory}
+                    onValueChange={(val) => {
+                      setFeedCategory(val);
+                      handleBrowseFeeds(val, searchKeywords.trim());
+                    }}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="news">News</SelectItem>
+                      <SelectItem value="tech">Tech</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="Filter by keywords..."
+                    value={searchKeywords}
+                    onChange={(e) => setSearchKeywords(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleBrowseFeeds();
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => handleBrowseFeeds()}
+                    disabled={searchLoading}
+                  >
+                    {searchLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Rss className="size-4" />
+                    )}
+                    Browse
+                  </Button>
+                </div>
+
+                {searchMessage && (
+                  <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                    {searchMessage}
+                  </div>
+                )}
+
+                {extracting && (
+                  <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Extracting article content...
+                  </div>
+                )}
+
+                {!extracting && searchResults.length > 0 && (
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {searchResults.map((result, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleExtract(result.url)}
+                        className="w-full text-left rounded-md border p-3 hover:bg-accent transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm line-clamp-1 flex-1">
+                            {result.title}
+                          </span>
+                          {result.source && (
+                            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {result.source}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          {result.snippet}
+                        </div>
+                        {result.pubDate && (
+                          <div className="text-[10px] text-muted-foreground/60 mt-1">
+                            {new Date(result.pubDate).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!extracting && searchResults.length === 0 && !searchMessage && !searchLoading && (
+                  <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    Browse English articles from curated RSS feeds
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
                 <Button
-                  variant="outline"
-                  onClick={handleWebSearch}
-                  disabled={!searchKeywords.trim()}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExtractedData(false)}
                 >
-                  <Search className="size-4" />
-                  Search
+                  &larr; Back to results
                 </Button>
-              </div>
-            </div>
 
-            {searchMessage && (
-              <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                {searchMessage}
-              </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Title</label>
+                  <Input
+                    value={searchTitle}
+                    onChange={(e) => setSearchTitle(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Content</label>
+                  <textarea
+                    className="border-input bg-transparent placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-[200px] w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                    value={searchContent}
+                    onChange={(e) => setSearchContent(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Difficulty</label>
+                    <Select
+                      value={searchDifficulty}
+                      onValueChange={setSearchDifficulty}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="beginner">Beginner</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Category</label>
+                    <Select
+                      value={searchCategory}
+                      onValueChange={setSearchCategory}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="business">Business</SelectItem>
+                        <SelectItem value="tech">Tech</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="news">News</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
             )}
-
-            <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Search results will appear here
-            </div>
           </TabsContent>
         </Tabs>
 

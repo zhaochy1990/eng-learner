@@ -37,3 +37,20 @@ export type Difficulty = typeof VALID_DIFFICULTIES[number];
 
 export const VALID_CATEGORIES = ['business', 'tech', 'daily', 'news', 'general'] as const;
 export type Category = typeof VALID_CATEGORIES[number];
+
+export interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+  source?: string;
+  category?: string;
+  pubDate?: string | null;
+}
+
+export interface ExtractedArticle {
+  title: string;
+  content: string;
+  summary: string;
+  difficulty: Difficulty;
+  category: Category;
+}

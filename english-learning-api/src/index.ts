@@ -9,6 +9,7 @@ import exportRouter from './routes/export';
 import dictionaryRouter from './routes/dictionary';
 import translateRouter from './routes/translate';
 import statsRouter from './routes/stats';
+import searchRouter from './routes/search';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -29,6 +30,7 @@ app.use('/api/articles', articlesRouter);
 app.use('/api/dictionary', dictionaryRouter);
 app.use('/api/translate', translateRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/search', searchRouter);
 
 (async () => {
   try {
