@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MASTERY_LABELS } from './spaced-repetition';
+import { MASTERY_LABELS } from '../src/lib/spaced-repetition';
 
 describe('MASTERY_LABELS', () => {
   it('has entries for levels 0, 1, 2, 3', () => {
