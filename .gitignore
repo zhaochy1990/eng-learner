@@ -2,3 +2,4 @@
 node_modules/
 *.db-shm
 *.db-wal
+infra/main.parameters.json

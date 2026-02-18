@@ -14,6 +14,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
 
@@ -39,12 +41,16 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.API_URL }}
 
   api:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,3 +76,35 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    needs: [frontend, api]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy API Container App
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az containerapp update \
+              -n ca-english-learning-api \
+              -g ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --image ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-api:latest
+
+      - name: Deploy Frontend Container App
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az containerapp update \
+              -n ca-english-learning-web \
+              -g ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --image ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-frontend:latest
