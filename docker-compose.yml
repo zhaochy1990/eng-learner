@@ -1,0 +1,39 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=DevPassword2024Str0ng
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+
+  frontend:
+    build:
+      context: ./english-learning
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  api:
+    build: ./english-learning-api
+    ports:
+      - "3001:3001"
+    environment:
+      - DB_SERVER=sqlserver
+      - DB_NAME=english_learning
+      - DB_USER=sa
+      - DB_PASSWORD=DevPassword2024Str0ng
+      - DB_PORT=1433
+      - DB_ENCRYPT=false
+      - DB_TRUST_SERVER_CERTIFICATE=true
+      - CORS_ORIGIN=http://localhost:3000
+    depends_on:
+      - sqlserver
+
+volumes:
+  sqldata:
