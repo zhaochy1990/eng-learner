@@ -1,5 +1,7 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { initPool } from './lib/db';
 import articlesRouter from './routes/articles';
 import vocabularyRouter from './routes/vocabulary';
 import reviewRouter from './routes/review';
@@ -28,6 +30,16 @@ app.use('/api/dictionary', dictionaryRouter);
 app.use('/api/translate', translateRouter);
 app.use('/api/stats', statsRouter);
 
-app.listen(PORT, () => {
-  console.log(`API server running on http://localhost:${PORT}`);
-});
+(async () => {
+  try {
+    await initPool();
+    console.log('Database connected and schema initialized');
+  } catch (err) {
+    console.error('Failed to connect to database:', err);
+    process.exit(1);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`API server running on http://localhost:${PORT}`);
+  });
+})();

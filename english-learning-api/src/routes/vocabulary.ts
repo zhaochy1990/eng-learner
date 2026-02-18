@@ -4,13 +4,13 @@ import { getVocabulary, saveWord, deleteWords } from '../lib/db';
 const router = Router();
 
 // GET /api/vocabulary
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const mastery_level = req.query.mastery_level as string | undefined;
     const search = (req.query.search as string) || undefined;
     const sort = (req.query.sort as string) || undefined;
 
-    const vocabulary = getVocabulary({
+    const vocabulary = await getVocabulary({
       mastery_level: mastery_level !== undefined && mastery_level !== '' ? Number(mastery_level) : undefined,
       search,
       sort,
@@ -24,7 +24,7 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // POST /api/vocabulary
-router.post('/', (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const body = req.body;
 
@@ -33,7 +33,7 @@ router.post('/', (req: Request, res: Response) => {
       return;
     }
 
-    const result = saveWord({
+    const result = await saveWord({
       word: body.word,
       phonetic: body.phonetic,
       translation: body.translation,
@@ -56,7 +56,7 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 // DELETE /api/vocabulary
-router.delete('/', (req: Request, res: Response) => {
+router.delete('/', async (req: Request, res: Response) => {
   try {
     const body = req.body;
 
@@ -70,7 +70,7 @@ router.delete('/', (req: Request, res: Response) => {
       return;
     }
 
-    deleteWords(body.ids);
+    await deleteWords(body.ids);
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/vocabulary error:', error);

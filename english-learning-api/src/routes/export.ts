@@ -11,9 +11,9 @@ function escapeCsv(s: string | number | null | undefined): string {
 }
 
 // GET /api/vocabulary/export
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const vocabulary = getVocabulary() as Array<{
+    const vocabulary = await getVocabulary() as Array<{
       word: string;
       phonetic: string | null;
       translation: string;

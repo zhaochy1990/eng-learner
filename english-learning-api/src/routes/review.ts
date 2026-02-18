@@ -10,7 +10,7 @@ type ReviewMode = typeof VALID_MODES[number];
 const VALID_RATINGS: Rating[] = ['again', 'hard', 'good', 'easy'];
 
 // GET /api/vocabulary/review
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const modeParam = (req.query.mode as string) || 'due';
     const mode: ReviewMode = (VALID_MODES as readonly string[]).includes(modeParam)
@@ -18,7 +18,7 @@ router.get('/', (req: Request, res: Response) => {
       : 'due';
     const limit = Number(req.query.limit || '30');
 
-    const words = getWordsForReview(mode, limit);
+    const words = await getWordsForReview(mode, limit);
     res.json(words);
   } catch (error) {
     console.error('GET /api/vocabulary/review error:', error);
@@ -27,7 +27,7 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // POST /api/vocabulary/review
-router.post('/', (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const { wordId, rating, currentLevel } = req.body;
 
@@ -42,7 +42,7 @@ router.post('/', (req: Request, res: Response) => {
     }
 
     const { newLevel, nextReviewAt } = calculateNextReview(currentLevel || 0, rating);
-    updateWordReview(wordId, newLevel, nextReviewAt);
+    await updateWordReview(wordId, newLevel, nextReviewAt);
 
     res.json({ newLevel, nextReviewAt });
   } catch (error) {

@@ -4,10 +4,10 @@ import { getStats, getLastReadArticle } from '../lib/db';
 const router = Router();
 
 // GET /api/stats
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const stats = getStats();
-    const lastRead = getLastReadArticle();
+    const stats = await getStats();
+    const lastRead = await getLastReadArticle();
 
     res.json({
       ...stats,

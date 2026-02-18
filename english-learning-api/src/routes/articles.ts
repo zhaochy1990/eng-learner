@@ -5,13 +5,13 @@ import { VALID_DIFFICULTIES, VALID_CATEGORIES } from '../lib/types';
 const router = Router();
 
 // GET /api/articles
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const difficulty = (req.query.difficulty as string) || undefined;
     const category = (req.query.category as string) || undefined;
     const search = (req.query.search as string) || undefined;
 
-    const articles = getAllArticles({ difficulty, category, search });
+    const articles = await getAllArticles({ difficulty, category, search });
     res.json(articles);
   } catch (error) {
     console.error('GET /api/articles error:', error);
@@ -20,7 +20,7 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // POST /api/articles
-router.post('/', (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const body = req.body;
 
@@ -39,7 +39,7 @@ router.post('/', (req: Request, res: Response) => {
       return;
     }
 
-    const id = createArticle({
+    const id = await createArticle({
       title: body.title,
       content: body.content,
       summary: body.summary,
@@ -56,9 +56,9 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 // GET /api/articles/:id
-router.get('/:id', (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const article = getArticleById(Number(req.params.id));
+    const article = await getArticleById(Number(req.params.id));
 
     if (!article) {
       res.status(404).json({ error: 'Article not found' });
@@ -73,9 +73,9 @@ router.get('/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /api/articles/:id
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    deleteArticle(Number(req.params.id));
+    await deleteArticle(Number(req.params.id));
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/articles/:id error:', error);
@@ -84,10 +84,10 @@ router.delete('/:id', (req: Request, res: Response) => {
 });
 
 // PATCH /api/articles/:id — update reading progress
-router.patch('/:id', (req: Request, res: Response) => {
+router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    updateReadingProgress(Number(req.params.id), {
+    await updateReadingProgress(Number(req.params.id), {
       scroll_position: body.scroll_position,
       current_sentence: body.current_sentence,
       completed: body.completed,
@@ -100,10 +100,10 @@ router.patch('/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/articles/:id — sendBeacon compatibility for reading progress
-router.post('/:id', (req: Request, res: Response) => {
+router.post('/:id', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    updateReadingProgress(Number(req.params.id), {
+    await updateReadingProgress(Number(req.params.id), {
       scroll_position: body.scroll_position,
       current_sentence: body.current_sentence,
       completed: body.completed,

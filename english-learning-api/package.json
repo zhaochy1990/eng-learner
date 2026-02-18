@@ -6,19 +6,24 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "dotenv": "^17.3.1",
+    "express": "^5.1.0",
+    "mssql": "^12.2.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.2",
+    "@types/mssql": "^9.1.9",
     "@types/node": "^20",
     "tsx": "^4.19.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }

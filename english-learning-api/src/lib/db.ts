@@ -1,72 +1,114 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
+import sql from 'mssql';
 
-const DB_PATH = path.join(__dirname, '..', '..', 'data', 'app.db');
+const config: sql.config = {
+  server: process.env.DB_SERVER!,
+  database: process.env.DB_NAME!,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  port: Number(process.env.DB_PORT) || 1433,
+  options: {
+    encrypt: process.env.DB_ENCRYPT !== 'false',
+    trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
+  },
+  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
+};
 
-let db: Database.Database | null = null;
+let pool: sql.ConnectionPool | null = null;
 
-export function getDb(): Database.Database {
-  if (!db) {
-    const dataDir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initializeSchema(db);
+export async function initPool(): Promise<sql.ConnectionPool> {
+  if (!pool) {
+    pool = await new sql.ConnectionPool(config).connect();
+    await initializeSchema(pool);
   }
-  return db;
+  return pool;
 }
 
-function initializeSchema(db: Database.Database) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS articles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      summary TEXT,
-      difficulty TEXT NOT NULL DEFAULT 'intermediate' CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
-      category TEXT NOT NULL DEFAULT 'general',
-      source_url TEXT,
-      word_count INTEGER NOT NULL DEFAULT 0,
-      reading_time INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+async function getPool(): Promise<sql.ConnectionPool> {
+  if (!pool) {
+    return initPool();
+  }
+  return pool;
+}
 
-    CREATE TABLE IF NOT EXISTS reading_progress (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      article_id INTEGER NOT NULL UNIQUE,
-      scroll_position REAL NOT NULL DEFAULT 0,
-      current_sentence INTEGER NOT NULL DEFAULT 0,
-      completed INTEGER NOT NULL DEFAULT 0,
-      last_read_at TEXT NOT NULL DEFAULT (datetime('now')),
+async function initializeSchema(pool: sql.ConnectionPool) {
+  await pool.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'articles')
+    CREATE TABLE articles (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      title NVARCHAR(500) NOT NULL,
+      content NVARCHAR(MAX) NOT NULL,
+      summary NVARCHAR(MAX),
+      difficulty NVARCHAR(20) NOT NULL DEFAULT 'intermediate',
+      category NVARCHAR(50) NOT NULL DEFAULT 'general',
+      source_url NVARCHAR(2000),
+      word_count INT NOT NULL DEFAULT 0,
+      reading_time INT NOT NULL DEFAULT 0,
+      created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+    );
+  `);
+
+  await pool.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'reading_progress')
+    CREATE TABLE reading_progress (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      article_id INT NOT NULL UNIQUE,
+      scroll_position FLOAT NOT NULL DEFAULT 0,
+      current_sentence INT NOT NULL DEFAULT 0,
+      completed INT NOT NULL DEFAULT 0,
+      last_read_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
       FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
     );
-
-    CREATE TABLE IF NOT EXISTS vocabulary (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      word TEXT NOT NULL UNIQUE COLLATE NOCASE,
-      phonetic TEXT,
-      translation TEXT NOT NULL,
-      pos TEXT,
-      definition TEXT,
-      context_sentence TEXT,
-      context_article_id INTEGER,
-      mastery_level INTEGER NOT NULL DEFAULT 0 CHECK (mastery_level BETWEEN 0 AND 3),
-      next_review_at TEXT NOT NULL DEFAULT (datetime('now')),
-      review_count INTEGER NOT NULL DEFAULT 0,
-      last_reviewed_at TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (context_article_id) REFERENCES articles(id) ON DELETE SET NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_vocabulary_word ON vocabulary(word);
-    CREATE INDEX IF NOT EXISTS idx_vocabulary_next_review ON vocabulary(next_review_at);
-    CREATE INDEX IF NOT EXISTS idx_vocabulary_mastery ON vocabulary(mastery_level);
-    CREATE INDEX IF NOT EXISTS idx_reading_progress_article ON reading_progress(article_id);
   `);
+
+  await pool.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'vocabulary')
+    CREATE TABLE vocabulary (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      word NVARCHAR(200) NOT NULL,
+      phonetic NVARCHAR(200),
+      translation NVARCHAR(MAX) NOT NULL,
+      pos NVARCHAR(50),
+      definition NVARCHAR(MAX),
+      context_sentence NVARCHAR(MAX),
+      context_article_id INT,
+      mastery_level INT NOT NULL DEFAULT 0,
+      next_review_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+      review_count INT NOT NULL DEFAULT 0,
+      last_reviewed_at DATETIME2,
+      created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+      FOREIGN KEY (context_article_id) REFERENCES articles(id) ON DELETE SET NULL,
+      CONSTRAINT UQ_vocabulary_word UNIQUE (word)
+    );
+  `);
+
+  await pool.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_word')
+      CREATE INDEX idx_vocabulary_word ON vocabulary(word);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_next_review')
+      CREATE INDEX idx_vocabulary_next_review ON vocabulary(next_review_at);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_mastery')
+      CREATE INDEX idx_vocabulary_mastery ON vocabulary(mastery_level);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_reading_progress_article')
+      CREATE INDEX idx_reading_progress_article ON reading_progress(article_id);
+  `);
+}
+
+function toISOString(val: unknown): string | null {
+  if (val === null || val === undefined) return null;
+  if (val instanceof Date) return val.toISOString().replace('T', ' ').substring(0, 19);
+  return String(val);
+}
+
+function mapRow(row: Record<string, unknown>): Record<string, unknown> {
+  const mapped: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(row)) {
+    if (key.endsWith('_at') && val instanceof Date) {
+      mapped[key] = toISOString(val);
+    } else {
+      mapped[key] = val;
+    }
+  }
+  return mapped;
 }
 
 const VALID_SORT_KEYS = ['date', 'alpha', 'mastery'] as const;
@@ -78,43 +120,47 @@ const SORT_MAP: Record<SortKey, string> = {
   'mastery': 'v.mastery_level ASC, v.word ASC',
 };
 
-export function getAllArticles(filters?: {
+export async function getAllArticles(filters?: {
   difficulty?: string;
   category?: string;
   search?: string;
 }) {
-  const db = getDb();
+  const p = await getPool();
+  const request = p.request();
   let query = 'SELECT a.*, rp.scroll_position, rp.completed, rp.current_sentence FROM articles a LEFT JOIN reading_progress rp ON a.id = rp.article_id WHERE 1=1';
-  const params: string[] = [];
 
   if (filters?.difficulty && filters.difficulty !== 'all') {
-    query += ' AND a.difficulty = ?';
-    params.push(filters.difficulty);
+    query += ' AND a.difficulty = @difficulty';
+    request.input('difficulty', sql.NVarChar, filters.difficulty);
   }
   if (filters?.category && filters.category !== 'all') {
-    query += ' AND a.category = ?';
-    params.push(filters.category);
+    query += ' AND a.category = @category';
+    request.input('category', sql.NVarChar, filters.category);
   }
   if (filters?.search) {
-    query += ' AND (a.title LIKE ? OR a.content LIKE ?)';
-    params.push(`%${filters.search}%`, `%${filters.search}%`);
+    query += ' AND (a.title LIKE @search OR a.content LIKE @search)';
+    request.input('search', sql.NVarChar, `%${filters.search}%`);
   }
 
   query += ' ORDER BY a.created_at DESC';
-  return db.prepare(query).all(...params);
+  const result = await request.query(query);
+  return result.recordset.map(mapRow);
 }
 
-export function getArticleById(id: number) {
-  const db = getDb();
-  return db.prepare(`
-    SELECT a.*, rp.scroll_position, rp.completed, rp.current_sentence
-    FROM articles a
-    LEFT JOIN reading_progress rp ON a.id = rp.article_id
-    WHERE a.id = ?
-  `).get(id);
+export async function getArticleById(id: number) {
+  const p = await getPool();
+  const result = await p.request()
+    .input('id', sql.Int, id)
+    .query(`
+      SELECT a.*, rp.scroll_position, rp.completed, rp.current_sentence
+      FROM articles a
+      LEFT JOIN reading_progress rp ON a.id = rp.article_id
+      WHERE a.id = @id
+    `);
+  return result.recordset.length > 0 ? mapRow(result.recordset[0]) : undefined;
 }
 
-export function createArticle(article: {
+export async function createArticle(article: {
   title: string;
   content: string;
   summary?: string;
@@ -122,105 +168,91 @@ export function createArticle(article: {
   category?: string;
   source_url?: string;
 }) {
-  const db = getDb();
+  const p = await getPool();
   const wordCount = article.content.split(/\s+/).filter(Boolean).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
-  const result = db.prepare(`
-    INSERT INTO articles (title, content, summary, difficulty, category, source_url, word_count, reading_time)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    article.title,
-    article.content,
-    article.summary || article.content.substring(0, 200) + '...',
-    article.difficulty || 'intermediate',
-    article.category || 'general',
-    article.source_url || null,
-    wordCount,
-    readingTime
-  );
+  const result = await p.request()
+    .input('title', sql.NVarChar, article.title)
+    .input('content', sql.NVarChar(sql.MAX), article.content)
+    .input('summary', sql.NVarChar(sql.MAX), article.summary || article.content.substring(0, 200) + '...')
+    .input('difficulty', sql.NVarChar, article.difficulty || 'intermediate')
+    .input('category', sql.NVarChar, article.category || 'general')
+    .input('source_url', sql.NVarChar, article.source_url || null)
+    .input('word_count', sql.Int, wordCount)
+    .input('reading_time', sql.Int, readingTime)
+    .query(`
+      INSERT INTO articles (title, content, summary, difficulty, category, source_url, word_count, reading_time)
+      VALUES (@title, @content, @summary, @difficulty, @category, @source_url, @word_count, @reading_time);
+      SELECT SCOPE_IDENTITY() AS id;
+    `);
 
-  return result.lastInsertRowid;
+  return result.recordset[0].id;
 }
 
-export function deleteArticle(id: number) {
-  const db = getDb();
-  return db.prepare('DELETE FROM articles WHERE id = ?').run(id);
+export async function deleteArticle(id: number) {
+  const p = await getPool();
+  return p.request()
+    .input('id', sql.Int, id)
+    .query('DELETE FROM articles WHERE id = @id');
 }
 
-export function updateReadingProgress(articleId: number, data: {
+export async function updateReadingProgress(articleId: number, data: {
   scroll_position?: number;
   current_sentence?: number;
   completed?: boolean;
 }) {
-  const db = getDb();
-
-  const existing = db.prepare('SELECT id FROM reading_progress WHERE article_id = ?').get(articleId);
-
-  if (existing) {
-    const updates: string[] = [];
-    const params: (number | string)[] = [];
-
-    if (data.scroll_position !== undefined) {
-      updates.push('scroll_position = ?');
-      params.push(data.scroll_position);
-    }
-    if (data.current_sentence !== undefined) {
-      updates.push('current_sentence = ?');
-      params.push(data.current_sentence);
-    }
-    if (data.completed !== undefined) {
-      updates.push('completed = ?');
-      params.push(data.completed ? 1 : 0);
-    }
-
-    if (updates.length === 0) return;
-
-    updates.push("last_read_at = datetime('now')");
-    params.push(articleId);
-
-    db.prepare(`UPDATE reading_progress SET ${updates.join(', ')} WHERE article_id = ?`).run(...params);
-  } else {
-    db.prepare(`
-      INSERT INTO reading_progress (article_id, scroll_position, current_sentence, completed, last_read_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(
-      articleId,
-      data.scroll_position ?? 0,
-      data.current_sentence ?? 0,
-      data.completed ? 1 : 0
-    );
-  }
+  const p = await getPool();
+  await p.request()
+    .input('article_id', sql.Int, articleId)
+    .input('scroll_position', sql.Float, data.scroll_position ?? 0)
+    .input('current_sentence', sql.Int, data.current_sentence ?? 0)
+    .input('completed', sql.Int, data.completed ? 1 : 0)
+    .query(`
+      MERGE reading_progress AS target
+      USING (SELECT @article_id AS article_id) AS source
+      ON target.article_id = source.article_id
+      WHEN MATCHED THEN
+        UPDATE SET
+          scroll_position = CASE WHEN @scroll_position IS NOT NULL THEN @scroll_position ELSE target.scroll_position END,
+          current_sentence = CASE WHEN @current_sentence IS NOT NULL THEN @current_sentence ELSE target.current_sentence END,
+          completed = CASE WHEN @completed IS NOT NULL THEN @completed ELSE target.completed END,
+          last_read_at = GETUTCDATE()
+      WHEN NOT MATCHED THEN
+        INSERT (article_id, scroll_position, current_sentence, completed, last_read_at)
+        VALUES (@article_id, @scroll_position, @current_sentence, @completed, GETUTCDATE());
+    `);
 }
 
-export function getLastReadArticle() {
-  const db = getDb();
-  return db.prepare(`
-    SELECT a.*, rp.scroll_position, rp.completed, rp.current_sentence
-    FROM articles a
-    JOIN reading_progress rp ON a.id = rp.article_id
-    WHERE rp.completed = 0
-    ORDER BY rp.last_read_at DESC
-    LIMIT 1
-  `).get();
+export async function getLastReadArticle() {
+  const p = await getPool();
+  const result = await p.request()
+    .query(`
+      SELECT TOP 1 a.*, rp.scroll_position, rp.completed, rp.current_sentence
+      FROM articles a
+      JOIN reading_progress rp ON a.id = rp.article_id
+      WHERE rp.completed = 0
+      ORDER BY rp.last_read_at DESC
+    `);
+  return result.recordset.length > 0 ? mapRow(result.recordset[0]) : undefined;
 }
 
-export function getVocabulary(filters?: {
+export async function getVocabulary(filters?: {
   mastery_level?: number;
   search?: string;
   sort?: string;
 }) {
-  const db = getDb();
+  const p = await getPool();
+  const request = p.request();
   let query = 'SELECT v.*, a.title as article_title FROM vocabulary v LEFT JOIN articles a ON v.context_article_id = a.id WHERE 1=1';
-  const params: (string | number)[] = [];
 
   if (filters?.mastery_level !== undefined && filters.mastery_level >= 0) {
-    query += ' AND v.mastery_level = ?';
-    params.push(filters.mastery_level);
+    query += ' AND v.mastery_level = @mastery_level';
+    request.input('mastery_level', sql.Int, filters.mastery_level);
   }
   if (filters?.search) {
-    query += ' AND (v.word LIKE ? OR v.translation LIKE ?)';
-    params.push(`%${filters.search}%`, `%${filters.search}%`);
+    query += ' AND (v.word LIKE @search OR v.translation LIKE @search)';
+    request.input('search', sql.NVarChar, `%${filters.search}%`);
   }
 
   const sortKey = (filters?.sort || 'date') as string;
@@ -229,10 +261,11 @@ export function getVocabulary(filters?: {
     : SORT_MAP['date'];
   query += ` ORDER BY ${orderBy}`;
 
-  return db.prepare(query).all(...params);
+  const result = await request.query(query);
+  return result.recordset.map(mapRow);
 }
 
-export function saveWord(word: {
+export async function saveWord(word: {
   word: string;
   phonetic?: string;
   translation: string;
@@ -241,87 +274,105 @@ export function saveWord(word: {
   context_sentence?: string;
   context_article_id?: number;
 }) {
-  const db = getDb();
-  const result = db.prepare(`
-    INSERT OR IGNORE INTO vocabulary (word, phonetic, translation, pos, definition, context_sentence, context_article_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    word.word.toLowerCase(),
-    word.phonetic || null,
-    word.translation,
-    word.pos || null,
-    word.definition || null,
-    word.context_sentence || null,
-    word.context_article_id || null
-  );
-
-  if (result.changes === 0) {
-    const existing = db.prepare('SELECT id FROM vocabulary WHERE word = ? COLLATE NOCASE').get(word.word) as { id: number };
-    return { id: existing.id, exists: true };
+  const p = await getPool();
+  try {
+    const result = await p.request()
+      .input('word', sql.NVarChar, word.word.toLowerCase())
+      .input('phonetic', sql.NVarChar, word.phonetic || null)
+      .input('translation', sql.NVarChar(sql.MAX), word.translation)
+      .input('pos', sql.NVarChar, word.pos || null)
+      .input('definition', sql.NVarChar(sql.MAX), word.definition || null)
+      .input('context_sentence', sql.NVarChar(sql.MAX), word.context_sentence || null)
+      .input('context_article_id', sql.Int, word.context_article_id || null)
+      .query(`
+        INSERT INTO vocabulary (word, phonetic, translation, pos, definition, context_sentence, context_article_id)
+        VALUES (@word, @phonetic, @translation, @pos, @definition, @context_sentence, @context_article_id);
+        SELECT SCOPE_IDENTITY() AS id;
+      `);
+    return { id: result.recordset[0].id, exists: false };
+  } catch (err: unknown) {
+    const sqlErr = err as { number?: number };
+    if (sqlErr.number === 2627 || sqlErr.number === 2601) {
+      const existing = await p.request()
+        .input('word', sql.NVarChar, word.word.toLowerCase())
+        .query('SELECT id FROM vocabulary WHERE word = @word');
+      return { id: existing.recordset[0].id, exists: true };
+    }
+    throw err;
   }
-
-  return { id: result.lastInsertRowid, exists: false };
 }
 
-export function deleteWords(ids: number[]) {
+export async function deleteWords(ids: number[]) {
   if (ids.length === 0) return { changes: 0 };
-  const db = getDb();
-  const placeholders = ids.map(() => '?').join(',');
-  return db.prepare(`DELETE FROM vocabulary WHERE id IN (${placeholders})`).run(...ids);
+  const p = await getPool();
+  const request = p.request();
+  const placeholders: string[] = [];
+  ids.forEach((id, i) => {
+    const paramName = `id${i}`;
+    request.input(paramName, sql.Int, id);
+    placeholders.push(`@${paramName}`);
+  });
+  const result = await request.query(`DELETE FROM vocabulary WHERE id IN (${placeholders.join(',')})`);
+  return { changes: result.rowsAffected[0] };
 }
 
-export function getWordsForReview(mode: 'due' | 'new' | 'all' = 'due', limit = 30) {
-  const db = getDb();
+export async function getWordsForReview(mode: 'due' | 'new' | 'all' = 'due', limit = 30) {
+  const p = await getPool();
   let query: string;
 
   switch (mode) {
     case 'due':
-      query = `SELECT * FROM vocabulary WHERE next_review_at <= datetime('now') ORDER BY next_review_at ASC LIMIT ?`;
+      query = `SELECT * FROM vocabulary WHERE next_review_at <= GETUTCDATE() ORDER BY next_review_at ASC OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY`;
       break;
     case 'new':
-      query = `SELECT * FROM vocabulary WHERE review_count = 0 ORDER BY created_at DESC LIMIT ?`;
+      query = `SELECT * FROM vocabulary WHERE review_count = 0 ORDER BY created_at DESC OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY`;
       break;
     case 'all':
-      query = `SELECT * FROM vocabulary ORDER BY next_review_at ASC LIMIT ?`;
+      query = `SELECT * FROM vocabulary ORDER BY next_review_at ASC OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY`;
       break;
     default:
-      query = `SELECT * FROM vocabulary WHERE next_review_at <= datetime('now') ORDER BY next_review_at ASC LIMIT ?`;
+      query = `SELECT * FROM vocabulary WHERE next_review_at <= GETUTCDATE() ORDER BY next_review_at ASC OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY`;
       break;
   }
 
-  return db.prepare(query).all(limit);
+  const result = await p.request()
+    .input('limit', sql.Int, limit)
+    .query(query);
+  return result.recordset.map(mapRow);
 }
 
-export function getDueWordCount() {
-  const db = getDb();
-  const result = db.prepare(`SELECT COUNT(*) as count FROM vocabulary WHERE next_review_at <= datetime('now')`).get() as { count: number };
-  return result.count;
+export async function getDueWordCount() {
+  const p = await getPool();
+  const result = await p.request()
+    .query(`SELECT COUNT(*) as count FROM vocabulary WHERE next_review_at <= GETUTCDATE()`);
+  return result.recordset[0].count;
 }
 
-export function updateWordReview(id: number, masteryLevel: number, nextReviewAt: string) {
-  const db = getDb();
-  db.prepare(`
-    UPDATE vocabulary
-    SET mastery_level = ?,
-        next_review_at = ?,
-        review_count = review_count + 1,
-        last_reviewed_at = datetime('now')
-    WHERE id = ?
-  `).run(masteryLevel, nextReviewAt, id);
+export async function updateWordReview(id: number, masteryLevel: number, nextReviewAt: string) {
+  const p = await getPool();
+  await p.request()
+    .input('id', sql.Int, id)
+    .input('mastery_level', sql.Int, masteryLevel)
+    .input('next_review_at', sql.NVarChar, nextReviewAt)
+    .query(`
+      UPDATE vocabulary
+      SET mastery_level = @mastery_level,
+          next_review_at = @next_review_at,
+          review_count = review_count + 1,
+          last_reviewed_at = GETUTCDATE()
+      WHERE id = @id
+    `);
 }
 
-export function getStats() {
-  const db = getDb();
-  const totalWords = (db.prepare('SELECT COUNT(*) as count FROM vocabulary').get() as { count: number }).count;
-  const masteredWords = (db.prepare('SELECT COUNT(*) as count FROM vocabulary WHERE mastery_level = 3').get() as { count: number }).count;
-  const dueWords = getDueWordCount();
-  const totalArticles = (db.prepare('SELECT COUNT(*) as count FROM articles').get() as { count: number }).count;
-
-  return { totalWords, masteredWords, dueWords, totalArticles };
+export async function getStats() {
+  const p = await getPool();
+  const result = await p.request().query(`
+    SELECT
+      (SELECT COUNT(*) FROM vocabulary) AS totalWords,
+      (SELECT COUNT(*) FROM vocabulary WHERE mastery_level = 3) AS masteredWords,
+      (SELECT COUNT(*) FROM vocabulary WHERE next_review_at <= GETUTCDATE()) AS dueWords,
+      (SELECT COUNT(*) FROM articles) AS totalArticles
+  `);
+  return result.recordset[0];
 }
 
-export function getSavedWordSet(): Set<string> {
-  const db = getDb();
-  const words = db.prepare('SELECT word FROM vocabulary').all() as { word: string }[];
-  return new Set(words.map(w => w.word.toLowerCase()));
-}
