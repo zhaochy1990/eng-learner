@@ -1,17 +1,33 @@
 import sql from 'mssql';
 
-const config: sql.config = {
-  server: process.env.DB_SERVER!,
-  database: process.env.DB_NAME!,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  port: Number(process.env.DB_PORT) || 1433,
-  options: {
-    encrypt: process.env.DB_ENCRYPT !== 'false',
-    trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
-  },
-  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
-};
+function buildConfig(): sql.config {
+  const base: sql.config = {
+    server: process.env.DB_SERVER!,
+    database: process.env.DB_NAME!,
+    port: Number(process.env.DB_PORT) || 1433,
+    options: {
+      encrypt: process.env.DB_ENCRYPT !== 'false',
+      trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
+    },
+    pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
+  };
+
+  if (process.env.DB_USER && process.env.DB_PASSWORD) {
+    base.user = process.env.DB_USER;
+    base.password = process.env.DB_PASSWORD;
+  } else {
+    base.authentication = {
+      type: 'azure-active-directory-default',
+      options: {
+        clientId: process.env.AZURE_CLIENT_ID,
+      },
+    };
+  }
+
+  return base;
+}
+
+const config = buildConfig();
 
 let pool: sql.ConnectionPool | null = null;
 
