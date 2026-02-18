@@ -245,11 +245,8 @@ export default function ArticleReaderPage() {
         </div>
       </div>
 
-      {/* Article title and metadata */}
+      {/* Article metadata */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight mb-3">
-          {article.title}
-        </h1>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {article.difficulty && (
             <Badge variant="outline" className="capitalize">
