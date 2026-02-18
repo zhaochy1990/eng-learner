@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MsEdgeTTS } from "msedge-tts";
+import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 import { Readable } from "stream";
 
 const ALLOWED_VOICES = new Set([
@@ -48,12 +48,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const tts = new MsEdgeTTS();
-    await tts.setMetadata(voice, "audio-24khz-48kbitrate-mono-mp3");
+    await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
     const { audioStream } = tts.toStream(text, { rate: rateStr });
     const buffer = await readableToBuffer(audioStream);
     tts.close();
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "audio/mpeg",
         "Cache-Control": "public, max-age=86400",
