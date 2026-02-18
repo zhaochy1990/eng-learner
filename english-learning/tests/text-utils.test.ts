@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { splitParagraphs, splitSentences, SENTENCE_SPLIT_REGEX } from './text-utils';
+import { splitParagraphs, splitSentences, SENTENCE_SPLIT_REGEX } from '../src/lib/text-utils';
 
 describe('splitParagraphs', () => {
   it('splits multiple paragraphs separated by \\n\\n', () => {

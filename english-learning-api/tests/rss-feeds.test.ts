@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseRssXml, stripHtml, FeedSource } from './rss-feeds';
+import { parseRssXml, stripHtml, FeedSource } from '../src/lib/rss-feeds';
 
 const testFeed: FeedSource = {
   name: 'Test Feed',

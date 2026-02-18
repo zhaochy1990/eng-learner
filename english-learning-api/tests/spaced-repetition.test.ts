@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateNextReview, getMasteryLabel, getMasteryStars } from './spaced-repetition';
+import { calculateNextReview, getMasteryLabel, getMasteryStars } from '../src/lib/spaced-repetition';
 
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
