@@ -74,6 +74,24 @@ interface ParsedParagraph {
   index: number;
 }
 
+function tokeniseWords(text: string): ParsedWord[] {
+  const wordTokens = text.split(/(\s+)/);
+  const words: ParsedWord[] = [];
+  for (let i = 0; i < wordTokens.length; i++) {
+    const token = wordTokens[i];
+    if (/^\s*$/.test(token)) continue;
+    const match = token.match(/^(.*?)([^a-zA-Z'-]*)$/);
+    const body = match ? match[1] : token;
+    const trailing = match ? match[2] : "";
+    words.push({
+      text: token,
+      clean: body.toLowerCase().replace(/^[^a-zA-Z'-]+/, ""),
+      trailing,
+    });
+  }
+  return words;
+}
+
 // C6 fix: use shared text-utils for splitting
 function tokenise(content: string): ParsedParagraph[] {
   const rawParagraphs = splitParagraphs(content);
@@ -169,6 +187,7 @@ export function ArticleReader({
   const settingsRef = useRef<HTMLDivElement>(null);
 
   const paragraphs = useMemo(() => tokenise(article.content), [article.content]);
+  const titleWords = useMemo(() => tokeniseWords(article.title), [article.title]);
 
   // L9 fix: persist settings on change
   useEffect(() => {
@@ -389,6 +408,36 @@ export function ArticleReader({
           </div>
         )}
       </div>
+
+      {/* Article title */}
+      <h1 className="text-2xl font-bold tracking-tight mb-3">
+        {titleWords.map((word, wordIdx) => {
+          const isSaved = word.clean && isWordSaved(word.clean);
+          const isClickable = /[a-zA-Z]/.test(word.clean);
+          return (
+            <span key={wordIdx}>
+              {isClickable ? (
+                <span
+                  className={cn(
+                    "cursor-pointer rounded-sm transition-colors hover:bg-primary/10",
+                    isSaved &&
+                      "underline decoration-primary/40 decoration-2 underline-offset-4"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleWordClick(e, word.text, article.title);
+                  }}
+                >
+                  {word.text}
+                </span>
+              ) : (
+                <span>{word.text}</span>
+              )}
+              {wordIdx < titleWords.length - 1 && " "}
+            </span>
+          );
+        })}
+      </h1>
 
       {/* Article content */}
       <div
