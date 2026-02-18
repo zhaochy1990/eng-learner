@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { EdgeTTS } from "@travisvn/edge-tts";
+import { MsEdgeTTS } from "msedge-tts";
+import { Readable } from "stream";
 
 const ALLOWED_VOICES = new Set([
   "en-US-JennyNeural",
@@ -9,6 +10,14 @@ const ALLOWED_VOICES = new Set([
 ]);
 
 const MAX_TEXT_LENGTH = 2000;
+
+async function readableToBuffer(readable: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of readable) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -38,9 +47,11 @@ export async function GET(request: NextRequest) {
   const rateStr = rate >= 0 ? `+${rate}%` : `${rate}%`;
 
   try {
-    const tts = new EdgeTTS(text, voice, { rate: rateStr });
-    const result = await tts.synthesize();
-    const buffer = Buffer.from(await result.audio.arrayBuffer());
+    const tts = new MsEdgeTTS();
+    await tts.setMetadata(voice, "audio-24khz-48kbitrate-mono-mp3");
+    const { audioStream } = tts.toStream(text, { rate: rateStr });
+    const buffer = await readableToBuffer(audioStream);
+    tts.close();
 
     return new NextResponse(buffer, {
       headers: {
