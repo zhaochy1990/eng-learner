@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
-import { Search, Plus, Clock, BookOpen, ArrowRight } from "lucide-react";
+import { Search, Plus, Clock, BookOpen, ArrowRight, BookMarked } from "lucide-react";
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { AddArticleDialog } from "@/components/add-article-dialog";
 import type { Article } from "@/lib/types";
+import { splitParagraphs, splitSentences } from "@/lib/text-utils";
+import { filterVocabularyByArticle, type VocabularyItem } from "@/components/vocabulary-sidebar";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -48,7 +50,23 @@ export default function ArticlesPage() {
   const [category, setCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    apiFetch("/api/vocabulary")
+      .then((res) => res.json())
+      .then((data: VocabularyItem[]) => setVocabularyItems(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  const articleVocabCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const article of articles) {
+      counts.set(article.id, filterVocabularyByArticle(vocabularyItems, article.content).length);
+    }
+    return counts;
+  }, [articles, vocabularyItems]);
 
   const fetchArticles = useCallback(
     async (params?: { difficulty?: string; category?: string; search?: string }) => {
@@ -101,12 +119,15 @@ export default function ArticlesPage() {
   }
 
   function getReadingProgress(article: Article): number | null {
-    if (article.scroll_position == null && article.completed == null) {
+    if (article.current_sentence == null && article.completed == null) {
       return null;
     }
     if (article.completed === 1) return 100;
-    if (article.scroll_position != null && article.scroll_position > 0) {
-      return Math.round(article.scroll_position * 100);
+    if (article.current_sentence != null && article.current_sentence > 0) {
+      const totalSentences = splitParagraphs(article.content)
+        .reduce((sum, para) => sum + splitSentences(para).length, 0);
+      if (totalSentences === 0) return 0;
+      return Math.min(Math.round((article.current_sentence / totalSentences) * 100), 99);
     }
     return 0;
   }
@@ -193,6 +214,7 @@ export default function ArticlesPage() {
         <div className="grid gap-4">
           {articles.map((article) => {
             const progress = getReadingProgress(article);
+            const vocabCount = articleVocabCounts.get(article.id) ?? 0;
             return (
               <Card key={article.id} className="py-0 overflow-hidden">
                 <div className="flex flex-col sm:flex-row">
@@ -228,6 +250,12 @@ export default function ArticlesPage() {
                           <BookOpen className="size-3.5" />
                           {article.word_count} words
                         </span>
+                        {vocabCount > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            <BookMarked className="size-3.5" />
+                            {vocabCount} saved
+                          </span>
+                        )}
                         {article.category && article.category !== "general" && (
                           <Badge variant="outline" className="text-xs py-0 px-1.5">
                             {article.category.charAt(0).toUpperCase() +

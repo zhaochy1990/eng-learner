@@ -191,10 +191,12 @@ export function ArticleReader({
   const readerRef = useRef<HTMLDivElement>(null);
 
   const paragraphs = useMemo(() => tokenise(article.content), [article.content]);
-  const translationParagraphs = useMemo(
+  const allTranslationParagraphs = useMemo(
     () => (translation ? splitParagraphs(translation) : []),
     [translation]
   );
+  const titleTranslation = allTranslationParagraphs.length > 0 ? allTranslationParagraphs[0] : null;
+  const translationParagraphs = allTranslationParagraphs.slice(1);
   const titleWords = useMemo(() => tokeniseWords(article.title), [article.title]);
 
   // --- handle text selection for translate ---
@@ -336,6 +338,11 @@ export function ArticleReader({
           );
         })}
       </h1>
+      {showTranslation && titleTranslation && (
+        <p className="text-base text-muted-foreground mb-3">
+          {titleTranslation}
+        </p>
+      )}
 
       {/* Article content */}
       <div
