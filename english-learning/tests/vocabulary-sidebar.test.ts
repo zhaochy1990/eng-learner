@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { filterVocabularyByArticle, type VocabularyItem } from '../src/components/vocabulary-sidebar';
+import { getBaseForms } from '../src/lib/text-utils';
 
 const word = (w: string, translation = '翻译'): VocabularyItem => ({
   word: w,
@@ -58,5 +59,55 @@ describe('filterVocabularyByArticle', () => {
     const content = 'The catalog is on the table.';
     // 'catalog' tokenizes as 'catalog', not 'cat', so no match
     expect(filterVocabularyByArticle(vocab, content)).toEqual([]);
+  });
+
+  it('matches base form when article has inflected form (plural)', () => {
+    const vocab = [word('apple')];
+    const content = 'I like apples very much.';
+    expect(filterVocabularyByArticle(vocab, content).map((v) => v.word)).toEqual(['apple']);
+  });
+
+  it('matches base form when article has -ing form', () => {
+    const vocab = [word('blame')];
+    const content = 'They were blaming each other.';
+    expect(filterVocabularyByArticle(vocab, content).map((v) => v.word)).toEqual(['blame']);
+  });
+
+  it('matches base form when article has -ed form', () => {
+    const vocab = [word('create')];
+    const content = 'She created a masterpiece.';
+    expect(filterVocabularyByArticle(vocab, content).map((v) => v.word)).toEqual(['create']);
+  });
+
+  it('matches base form when article has -ies form', () => {
+    const vocab = [word('story')];
+    const content = 'He told many stories.';
+    expect(filterVocabularyByArticle(vocab, content).map((v) => v.word)).toEqual(['story']);
+  });
+});
+
+describe('getBaseForms', () => {
+  it('returns the word itself', () => {
+    expect(getBaseForms('blame')).toContain('blame');
+  });
+
+  it('strips -ing suffix', () => {
+    const forms = getBaseForms('blaming');
+    expect(forms).toContain('blame');
+  });
+
+  it('strips -ed suffix', () => {
+    const forms = getBaseForms('created');
+    expect(forms).toContain('create');
+  });
+
+  it('strips -s suffix', () => {
+    const forms = getBaseForms('apples');
+    expect(forms).toContain('apple');
+  });
+
+  it('strips -ies to -y', () => {
+    const forms = getBaseForms('stories');
+    expect(forms).toContain('story');
   });
 });
