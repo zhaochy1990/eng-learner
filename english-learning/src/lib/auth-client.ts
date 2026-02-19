@@ -43,6 +43,17 @@ export function decodeJwt(token: string): JwtPayload {
   return JSON.parse(json);
 }
 
+export function getUserRole(): string | null {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const payload = decodeJwt(token);
+    return payload.role || null;
+  } catch {
+    return null;
+  }
+}
+
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
   return sessionStorage.getItem('access_token');
