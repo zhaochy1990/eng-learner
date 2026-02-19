@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArticleReader,
@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { Article } from "@/lib/types";
+import { VocabularySidebar, filterVocabularyByArticle, type VocabularyItem } from "@/components/vocabulary-sidebar";
+import type { SavedWordInfo } from "@/components/word-popover";
 import { apiUrl, apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth-client";
 import { useAuth } from "@/contexts/auth-context";
@@ -46,6 +48,7 @@ export default function ArticleReaderPage() {
   const [translationLoading, setTranslationLoading] = useState(false);
   const [readerSettings, setReaderSettings] = useState<ReaderSettings>(loadSettings);
   const [showSettings, setShowSettings] = useState(false);
+  const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([]);
   const settingsRef = useRef<HTMLDivElement>(null);
   const { role } = useAuth();
 
@@ -70,6 +73,35 @@ export default function ArticleReaderPage() {
       return () => document.removeEventListener("mousedown", handleClick);
     }
   }, [showSettings]);
+
+  // --- Fetch saved vocabulary on mount ---
+  useEffect(() => {
+    apiFetch("/api/vocabulary")
+      .then((res) => res.json())
+      .then((data: VocabularyItem[]) => {
+        setVocabularyItems(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch vocabulary:", err);
+      });
+  }, []);
+
+  const savedWords = useMemo(
+    () => new Set(vocabularyItems.map((w) => w.word.toLowerCase())),
+    [vocabularyItems]
+  );
+
+  const articleVocabulary = useMemo(
+    () => (article ? filterVocabularyByArticle(vocabularyItems, article.content) : []),
+    [vocabularyItems, article]
+  );
+
+  const handleWordSaved = useCallback((word: string, info: SavedWordInfo) => {
+    setVocabularyItems((prev) => {
+      if (prev.some((v) => v.word.toLowerCase() === word.toLowerCase())) return prev;
+      return [...prev, info];
+    });
+  }, []);
 
   const handleDelete = useCallback(async () => {
     if (!params.id) return;
@@ -298,7 +330,8 @@ export default function ArticleReaderPage() {
 
   // --- Article loaded ---
   return (
-    <div className="max-w-3xl mx-auto pb-24">
+    <div className="max-w-5xl mx-auto pb-24 lg:flex lg:gap-8">
+      <div className="min-w-0 flex-1 max-w-3xl">
       {/* Header bar */}
       <div className="flex items-center justify-between mb-6">
         <Button
@@ -448,10 +481,14 @@ export default function ArticleReaderPage() {
         settings={readerSettings}
         translation={translation}
         showTranslation={showTranslation}
+        savedWords={savedWords}
+        onWordSaved={handleWordSaved}
       />
 
       {/* TTS Player */}
       {showTTS && <TTSPlayer {...tts} />}
+      </div>
+      <VocabularySidebar words={articleVocabulary} />
     </div>
   );
 }
