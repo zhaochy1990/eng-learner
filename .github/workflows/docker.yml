@@ -9,13 +9,22 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version from package.json
+        id: version
+        run: echo "version=$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
+
   frontend:
+    needs: [version]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    outputs:
-      image: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,9 +39,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-frontend
           tags: |
+            type=raw,value=${{ needs.version.outputs.version }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
             type=sha
 
       - uses: docker/build-push-action@v6
@@ -47,12 +56,11 @@ jobs:
             NEXT_PUBLIC_AUTH_CLIENT_ID=app_040b1d0551104759b69dfe8c
 
   api:
+    needs: [version]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    outputs:
-      image: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,9 +75,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-api
           tags: |
+            type=raw,value=${{ needs.version.outputs.version }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
             type=sha
 
       - uses: docker/build-push-action@v6
@@ -81,7 +89,7 @@ jobs:
 
   deploy:
     if: github.ref == 'refs/heads/master'
-    needs: [frontend, api]
+    needs: [version, frontend, api]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -100,7 +108,7 @@ jobs:
             az containerapp update \
               -n ca-english-learning-api \
               -g ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --image ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-api:latest
+              --image ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-api:${{ needs.version.outputs.version }}
 
       - name: Deploy Frontend Container App
         uses: azure/cli@v2
@@ -109,4 +117,4 @@ jobs:
             az containerapp update \
               -n ca-english-learning-web \
               -g ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --image ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-frontend:latest
+              --image ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-frontend:${{ needs.version.outputs.version }}
