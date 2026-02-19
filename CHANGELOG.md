@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0](https://github.com/zhaochy1990/eng-learner/compare/v0.1.3...v0.2.0) (2026-02-19)
+
+
+### Features
+
+* **frontend:** add pronunciation button and tweak sidebar sizing ([#15](https://github.com/zhaochy1990/eng-learner/issues/15)) ([7c0b57b](https://github.com/zhaochy1990/eng-learner/commit/7c0b57b422311791350fa3626c974e2e51af6351))
+* **frontend:** add vocabulary sidebar to article reading page ([#13](https://github.com/zhaochy1990/eng-learner/issues/13)) ([ef91b15](https://github.com/zhaochy1990/eng-learner/commit/ef91b15bebca0fbf388a8d3dbad24fe64424d354))
+* **frontend:** make review card fullscreen and make article title clickable ([#14](https://github.com/zhaochy1990/eng-learner/issues/14)) ([f231ce3](https://github.com/zhaochy1990/eng-learner/commit/f231ce3939d38a3680d1f8abf4955b1a7a578dd7))
+
 ## [0.1.3](https://github.com/zhaochy1990/eng-learner/compare/v0.1.2...v0.1.3) (2026-02-19)
 
 
