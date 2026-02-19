@@ -109,10 +109,14 @@ router.post('/:id/translate', async (req: Request, res: Response) => {
       return;
     }
 
-    // Idempotent: return existing translation
+    // Idempotent: return existing translation if it includes the title
     if (article.translation) {
-      res.json({ translation: article.translation });
-      return;
+      const contentParaCount = article.content.split(/\n\s*\n/).filter((p: string) => p.trim()).length;
+      const translationParaCount = article.translation.split(/\n\s*\n/).filter((p: string) => p.trim()).length;
+      if (translationParaCount === contentParaCount + 1) {
+        res.json({ translation: article.translation });
+        return;
+      }
     }
 
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
