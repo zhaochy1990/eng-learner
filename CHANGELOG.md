@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3](https://github.com/zhaochy1990/eng-learner/compare/v0.1.2...v0.1.3) (2026-02-19)
+
+
+### Features
+
+* add paragraph-aligned Chinese translation for articles ([00f6c40](https://github.com/zhaochy1990/eng-learner/commit/00f6c401f9b5a05d3e5b81a264300d6ca8f4c08e))
+* **frontend:** add admin-only Refresh TTS and Delete buttons ([f9ce3c4](https://github.com/zhaochy1990/eng-learner/commit/f9ce3c4054ce21c9e9d4b0e5dad9214320ba3331))
+
+
+### Bug Fixes
+
+* **ci:** fix node -p quoting in version extraction step ([0b5a849](https://github.com/zhaochy1990/eng-learner/commit/0b5a8494ef0345799817d4c1c0f39dcb0a072ec7))
+* **frontend:** add password validation rules to registration form ([#11](https://github.com/zhaochy1990/eng-learner/issues/11)) ([bb20718](https://github.com/zhaochy1990/eng-learner/commit/bb2071873fc20e7a1d0591cb7ba8cc494c2eb170))
+* **frontend:** fix Refresh TTS button doing nothing on click ([8cd0814](https://github.com/zhaochy1990/eng-learner/commit/8cd0814436d27b0957a6a9c6df17e31e19cb7f62))
+* **frontend:** fix review card content overflow on long text ([1bfc1eb](https://github.com/zhaochy1990/eng-learner/commit/1bfc1ebb3c9809cb90125af39ac1065d3dae148d))
+
+
+### Refactoring
+
+* **frontend:** remove settings UI from ArticleReader component ([b10c5b2](https://github.com/zhaochy1990/eng-learner/commit/b10c5b2ada77d18c56fdc987c3717e1da907b5bc))
+
 ## [0.1.2](https://github.com/zhaochy1990/eng-learner/compare/v0.1.1...v0.1.2) (2026-02-19)
 
 ## [0.1.1](https://github.com/zhaochy1990/eng-learner/compare/v0.1.0...v0.1.1) (2026-02-19)
