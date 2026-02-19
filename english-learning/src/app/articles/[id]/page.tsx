@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { Article } from "@/lib/types";
-import { VocabularySidebar, type VocabularyItem } from "@/components/vocabulary-sidebar";
+import { VocabularySidebar, filterVocabularyByArticle, type VocabularyItem } from "@/components/vocabulary-sidebar";
 import type { SavedWordInfo } from "@/components/word-popover";
 import { apiUrl, apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth-client";
@@ -91,14 +91,10 @@ export default function ArticleReaderPage() {
     [vocabularyItems]
   );
 
-  const articleVocabulary = useMemo(() => {
-    if (!article) return [];
-    const content = article.content.toLowerCase();
-    return vocabularyItems.filter((item) => {
-      const re = new RegExp(`\\b${item.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-      return re.test(content);
-    });
-  }, [vocabularyItems, article]);
+  const articleVocabulary = useMemo(
+    () => (article ? filterVocabularyByArticle(vocabularyItems, article.content) : []),
+    [vocabularyItems, article]
+  );
 
   const handleWordSaved = useCallback((word: string, info: SavedWordInfo) => {
     setVocabularyItems((prev) => {
@@ -335,7 +331,7 @@ export default function ArticleReaderPage() {
   // --- Article loaded ---
   return (
     <div className="max-w-5xl mx-auto pb-24 lg:flex lg:gap-8">
-    <div className="min-w-0 flex-1 max-w-3xl">
+      <div className="min-w-0 flex-1 max-w-3xl">
       {/* Header bar */}
       <div className="flex items-center justify-between mb-6">
         <Button
@@ -491,8 +487,8 @@ export default function ArticleReaderPage() {
 
       {/* TTS Player */}
       {showTTS && <TTSPlayer {...tts} />}
-    </div>
-    <VocabularySidebar words={articleVocabulary} />
+      </div>
+      <VocabularySidebar words={articleVocabulary} />
     </div>
   );
 }

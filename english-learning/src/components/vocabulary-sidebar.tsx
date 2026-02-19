@@ -12,6 +12,18 @@ export interface VocabularyItem {
   definition: string | null;
 }
 
+export function filterVocabularyByArticle(
+  vocabularyItems: VocabularyItem[],
+  articleContent: string
+): VocabularyItem[] {
+  const wordsInArticle = new Set(
+    articleContent.toLowerCase().match(/[a-z'-]+/g) ?? []
+  );
+  return vocabularyItems.filter((item) =>
+    wordsInArticle.has(item.word.toLowerCase())
+  );
+}
+
 interface VocabularySidebarProps {
   words: VocabularyItem[];
 }
