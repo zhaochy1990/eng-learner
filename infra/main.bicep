@@ -39,6 +39,10 @@ param apiImage string = ''
 @description('Frontend container image. Leave empty for placeholder.')
 param frontendImage string = ''
 
+@description('JWT public key PEM content for auth token verification')
+@secure()
+param jwtPublicKey string
+
 // ============================================================
 // Variables
 // ============================================================
@@ -114,6 +118,7 @@ module containerApps 'modules/container-apps.bicep' = {
     azureOpenAiDeployment: azureOpenAiDeployment
     apiImage: apiImage
     frontendImage: frontendImage
+    jwtPublicKey: jwtPublicKey
   }
 }
 

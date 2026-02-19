@@ -32,6 +32,13 @@ param azureOpenAiApiKey string
 @description('Azure OpenAI deployment name')
 param azureOpenAiDeployment string
 
+@description('JWT public key PEM content for auth token verification')
+@secure()
+param jwtPublicKey string
+
+@description('JWT issuer claim to validate')
+param jwtIssuer string = 'auth-service'
+
 @description('API container image')
 param apiImage string
 
@@ -147,6 +154,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'azure-openai-api-key'
           value: azureOpenAiApiKey
         }
+        {
+          name: 'jwt-public-key'
+          value: jwtPublicKey
+        }
       ]
     }
     template: {
@@ -170,6 +181,8 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_OPENAI_API_KEY', secretRef: 'azure-openai-api-key' }
             { name: 'AZURE_OPENAI_DEPLOYMENT', value: azureOpenAiDeployment }
             { name: 'CORS_ORIGIN', value: 'https://${frontendApp.properties.configuration.ingress.fqdn}' }
+            { name: 'JWT_PUBLIC_KEY', secretRef: 'jwt-public-key' }
+            { name: 'JWT_ISSUER', value: jwtIssuer }
           ]
         }
       ]
