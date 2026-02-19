@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { WordPopover, type SavedWordInfo } from "@/components/word-popover";
 import { X, Languages, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { splitParagraphs, splitSentences } from "@/lib/text-utils";
+import { splitParagraphs, splitSentences, getBaseForms } from "@/lib/text-utils";
 import type { Article } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
 
@@ -309,7 +309,7 @@ export function ArticleReader({
   );
 
   const isWordSaved = useCallback(
-    (clean: string) => savedWords.has(clean),
+    (clean: string) => getBaseForms(clean).some((form) => savedWords.has(form)),
     [savedWords]
   );
 

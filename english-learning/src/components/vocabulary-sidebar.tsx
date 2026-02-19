@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Volume2 } from "lucide-react";
 import { speak } from "@/lib/speech";
+import { getBaseForms } from "@/lib/text-utils";
 
 export interface VocabularyItem {
   word: string;
@@ -18,11 +19,15 @@ export function filterVocabularyByArticle(
   vocabularyItems: VocabularyItem[],
   articleContent: string
 ): VocabularyItem[] {
-  const wordsInArticle = new Set(
-    articleContent.toLowerCase().match(/[a-z'-]+/g) ?? []
-  );
+  const articleBaseForms = new Set<string>();
+  const words = articleContent.toLowerCase().match(/[a-z'-]+/g) ?? [];
+  for (const w of words) {
+    for (const form of getBaseForms(w)) {
+      articleBaseForms.add(form);
+    }
+  }
   return vocabularyItems.filter((item) =>
-    wordsInArticle.has(item.word.toLowerCase())
+    articleBaseForms.has(item.word.toLowerCase())
   );
 }
 
