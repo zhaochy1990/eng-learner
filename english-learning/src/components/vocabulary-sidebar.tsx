@@ -1,8 +1,10 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Volume2 } from "lucide-react";
+import { speak } from "@/lib/speech";
 
 export interface VocabularyItem {
   word: string;
@@ -30,7 +32,7 @@ interface VocabularySidebarProps {
 
 export function VocabularySidebar({ words }: VocabularySidebarProps) {
   return (
-    <aside className="sticky top-6 hidden lg:block w-64 shrink-0">
+    <aside className="sticky top-6 hidden lg:block w-72 shrink-0">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-base">
@@ -52,7 +54,17 @@ export function VocabularySidebar({ words }: VocabularySidebarProps) {
             <ul className="max-h-[calc(100vh-12rem)] overflow-y-auto space-y-3 pr-1">
               {words.map((item) => (
                 <li key={item.word} className="text-sm">
-                  <p className="font-semibold leading-tight">{item.word}</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-base font-semibold leading-tight">{item.word}</p>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={() => speak(item.word)}
+                      title="Pronounce"
+                    >
+                      <Volume2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                   {item.phonetic && (
                     <p className="text-xs text-muted-foreground">
                       /{item.phonetic}/
