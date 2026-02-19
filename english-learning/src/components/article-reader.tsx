@@ -195,8 +195,14 @@ export function ArticleReader({
     () => (translation ? splitParagraphs(translation) : []),
     [translation]
   );
-  const titleTranslation = allTranslationParagraphs.length > 0 ? allTranslationParagraphs[0] : null;
-  const translationParagraphs = allTranslationParagraphs.slice(1);
+  const titleTranslation = useMemo(
+    () => (allTranslationParagraphs.length > 0 ? allTranslationParagraphs[0] : null),
+    [allTranslationParagraphs]
+  );
+  const translationParagraphs = useMemo(
+    () => allTranslationParagraphs.slice(1),
+    [allTranslationParagraphs]
+  );
   const titleWords = useMemo(() => tokeniseWords(article.title), [article.title]);
 
   // --- handle text selection for translate ---
