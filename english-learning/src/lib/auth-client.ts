@@ -56,13 +56,13 @@ export function getRefreshToken(): string | null {
 function storeTokens(accessToken: string, refreshToken: string) {
   sessionStorage.setItem('access_token', accessToken);
   sessionStorage.setItem('refresh_token', refreshToken);
-  document.cookie = 'logged_in=1; path=/';
+  document.cookie = 'logged_in=1; path=/; SameSite=Lax; Secure';
 }
 
 export function clearTokens() {
   sessionStorage.removeItem('access_token');
   sessionStorage.removeItem('refresh_token');
-  document.cookie = 'logged_in=; path=/; max-age=0';
+  document.cookie = 'logged_in=; path=/; max-age=0; SameSite=Lax; Secure';
 }
 
 export async function authLogin(email: string, password: string): Promise<TokenResponse> {
