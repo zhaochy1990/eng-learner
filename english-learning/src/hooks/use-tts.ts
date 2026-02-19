@@ -33,6 +33,7 @@ export interface UseTTSReturn {
   setRate: (rate: number) => void;
   setVoice: (voice: string) => void;
   jumpToSentence: (index: number) => void;
+  refresh: () => void;
 }
 
 interface SentenceInfo {
@@ -448,6 +449,19 @@ export function useTTS(options: UseTTSOptions): UseTTSReturn {
     };
   }, [clearCache]);
 
+  const refresh = useCallback(() => {
+    stop();
+    clearCache();
+    setCurrentSentenceIndex(0);
+    currentSentenceIndexRef.current = 0;
+    // Start playing from beginning after clearing
+    setTimeout(() => {
+      setIsPlaying(true);
+      shouldContinueRef.current = true;
+      playSentenceRef.current(0);
+    }, 0);
+  }, [stop, clearCache]);
+
   // Reset when text changes — stop playback and clear cache
   useEffect(() => {
     stop(); // eslint-disable-line react-hooks/set-state-in-effect -- reset state when text prop changes
@@ -473,5 +487,6 @@ export function useTTS(options: UseTTSOptions): UseTTSReturn {
     setRate,
     setVoice,
     jumpToSentence,
+    refresh,
   };
 }

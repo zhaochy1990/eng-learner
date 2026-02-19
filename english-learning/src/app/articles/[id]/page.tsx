@@ -2,7 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArticleReader } from "@/components/article-reader";
+import {
+  ArticleReader,
+  loadSettings,
+  saveSettings,
+  type ReaderSettings,
+  type FontSize,
+  type LineSpacing,
+} from "@/components/article-reader";
 import { TTSPlayer } from "@/components/tts-player";
 import { useTTS } from "@/hooks/use-tts";
 import { Button } from "@/components/ui/button";
@@ -11,12 +18,16 @@ import { Separator } from "@/components/ui/separator";
 import type { Article } from "@/lib/types";
 import { apiUrl, apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth-client";
+import { useAuth } from "@/contexts/auth-context";
 import {
   ArrowLeft,
   Clock,
   BookOpen,
   Loader2,
   AudioLines,
+  Trash2,
+  ALargeSmall,
+  RefreshCw,
 } from "lucide-react";
 
 export default function ArticleReaderPage() {
@@ -28,12 +39,48 @@ export default function ArticleReaderPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number | undefined>(undefined);
   const [showTTS, setShowTTS] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [readerSettings, setReaderSettings] = useState<ReaderSettings>(loadSettings);
+  const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const { role } = useAuth();
 
   // Scroll-progress saving timer
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedScrollRef = useRef<number>(0);
   // H3 fix: guard to prevent unbounded completion PATCH requests
   const completedRef = useRef(false);
+
+  useEffect(() => {
+    saveSettings(readerSettings);
+  }, [readerSettings]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    }
+    if (showSettings) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [showSettings]);
+
+  const handleDelete = useCallback(async () => {
+    if (!params.id) return;
+    const confirmed = window.confirm("Delete this article? This cannot be undone.");
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      const res = await apiFetch(`/api/articles/${params.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/articles");
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }, [params.id, router]);
 
   // --- Fetch article data ---
   useEffect(() => {
@@ -244,6 +291,78 @@ export default function ArticleReaderPage() {
             <AudioLines className="h-4 w-4" />
             {showTTS ? "Hide Player" : "Listen"}
           </Button>
+          <div className="relative" ref={settingsRef}>
+            <Button
+              variant={showSettings ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowSettings((v) => !v)}
+              className="gap-1.5"
+            >
+              <ALargeSmall className="h-4 w-4" />
+              Aa
+            </Button>
+            {showSettings && (
+              <div className="absolute top-full right-0 mt-1 z-50 w-64 rounded-lg border bg-popover p-4 shadow-lg animate-in fade-in-0 zoom-in-95">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium mb-2">Font Size</p>
+                    <div className="flex gap-1">
+                      {(["small", "medium", "large"] as FontSize[]).map((size) => (
+                        <Button
+                          key={size}
+                          variant={readerSettings.fontSize === size ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1 capitalize"
+                          onClick={() => setReaderSettings((s) => ({ ...s, fontSize: size }))}
+                        >
+                          {size}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-2">Line Spacing</p>
+                    <div className="flex gap-1">
+                      {(["compact", "normal", "relaxed"] as LineSpacing[]).map((spacing) => (
+                        <Button
+                          key={spacing}
+                          variant={readerSettings.lineSpacing === spacing ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1 capitalize"
+                          onClick={() => setReaderSettings((s) => ({ ...s, lineSpacing: spacing }))}
+                        >
+                          {spacing}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          {role === "admin" && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={tts.refresh}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh TTS
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Delete
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -282,6 +401,7 @@ export default function ArticleReaderPage() {
         article={article}
         currentSentenceIndex={currentSentenceIndex}
         onSentenceChange={handleSentenceChange}
+        settings={readerSettings}
       />
 
       {/* TTS Player */}
