@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { WordPopover } from "@/components/word-popover";
-import { ALargeSmall, X, Languages, Loader2 } from "lucide-react";
+import { X, Languages, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { splitParagraphs, splitSentences } from "@/lib/text-utils";
 import type { Article } from "@/lib/types";
@@ -21,12 +21,13 @@ interface ArticleReaderProps {
   article: Article;
   currentSentenceIndex?: number;
   onSentenceChange?: (sentenceIndex: number) => void;
+  settings: ReaderSettings;
 }
 
-type FontSize = "small" | "medium" | "large";
-type LineSpacing = "compact" | "normal" | "relaxed";
+export type FontSize = "small" | "medium" | "large";
+export type LineSpacing = "compact" | "normal" | "relaxed";
 
-interface ReaderSettings {
+export interface ReaderSettings {
   fontSize: FontSize;
   lineSpacing: LineSpacing;
 }
@@ -34,7 +35,7 @@ interface ReaderSettings {
 // L9 fix: persist settings to localStorage
 const SETTINGS_KEY = "english-app-reader-settings";
 
-function loadSettings(): ReaderSettings {
+export function loadSettings(): ReaderSettings {
   if (typeof window === "undefined") return { fontSize: "medium", lineSpacing: "normal" };
   try {
     const stored = localStorage.getItem(SETTINGS_KEY);
@@ -46,7 +47,7 @@ function loadSettings(): ReaderSettings {
   return { fontSize: "medium", lineSpacing: "normal" };
 }
 
-function saveSettings(settings: ReaderSettings) {
+export function saveSettings(settings: ReaderSettings) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch { /* ignore */ }
@@ -160,6 +161,7 @@ export function ArticleReader({
   article,
   currentSentenceIndex,
   onSentenceChange,
+  settings,
 }: ArticleReaderProps) {
   const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
   const [activeWord, setActiveWord] = useState<{
@@ -167,10 +169,6 @@ export function ArticleReader({
     position: { x: number; y: number };
     sentence: string;
   } | null>(null);
-
-  // L9 fix: load persisted settings
-  const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
-  const [showSettings, setShowSettings] = useState(false);
 
   const [selectionPopup, setSelectionPopup] = useState<{
     text: string;
@@ -184,15 +182,9 @@ export function ArticleReader({
   } | null>(null);
 
   const readerRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
 
   const paragraphs = useMemo(() => tokenise(article.content), [article.content]);
   const titleWords = useMemo(() => tokeniseWords(article.title), [article.title]);
-
-  // L9 fix: persist settings on change
-  useEffect(() => {
-    saveSettings(settings);
-  }, [settings]);
 
   // --- fetch saved words on mount ---
   useEffect(() => {
@@ -209,22 +201,6 @@ export function ArticleReader({
         console.error("Failed to fetch saved words:", err);
       });
   }, []);
-
-  // --- close settings on outside click ---
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (
-        settingsRef.current &&
-        !settingsRef.current.contains(e.target as Node)
-      ) {
-        setShowSettings(false);
-      }
-    }
-    if (showSettings) {
-      document.addEventListener("mousedown", handleClick);
-      return () => document.removeEventListener("mousedown", handleClick);
-    }
-  }, [showSettings]);
 
   // --- handle text selection for translate ---
   useEffect(() => {
@@ -344,71 +320,6 @@ export function ArticleReader({
 
   return (
     <div className="relative">
-      {/* Settings toggle */}
-      <div className="flex justify-end mb-3 relative" ref={settingsRef}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowSettings((v) => !v)}
-          className="gap-1.5"
-        >
-          <ALargeSmall className="h-4 w-4" />
-          Aa
-        </Button>
-
-        {showSettings && (
-          <div className="absolute top-full right-0 mt-1 z-50 w-64 rounded-lg border bg-popover p-4 shadow-lg animate-in fade-in-0 zoom-in-95">
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium mb-2">Font Size</p>
-                <div className="flex gap-1">
-                  {(["small", "medium", "large"] as FontSize[]).map((size) => (
-                    <Button
-                      key={size}
-                      variant={
-                        settings.fontSize === size ? "default" : "outline"
-                      }
-                      size="sm"
-                      className="flex-1 capitalize"
-                      onClick={() =>
-                        setSettings((s) => ({ ...s, fontSize: size }))
-                      }
-                    >
-                      {size}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium mb-2">Line Spacing</p>
-                <div className="flex gap-1">
-                  {(["compact", "normal", "relaxed"] as LineSpacing[]).map(
-                    (spacing) => (
-                      <Button
-                        key={spacing}
-                        variant={
-                          settings.lineSpacing === spacing
-                            ? "default"
-                            : "outline"
-                        }
-                        size="sm"
-                        className="flex-1 capitalize"
-                        onClick={() =>
-                          setSettings((s) => ({ ...s, lineSpacing: spacing }))
-                        }
-                      >
-                        {spacing}
-                      </Button>
-                    )
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Article title */}
       <h1 className="text-2xl font-bold tracking-tight mb-3">
         {titleWords.map((word, wordIdx) => {
