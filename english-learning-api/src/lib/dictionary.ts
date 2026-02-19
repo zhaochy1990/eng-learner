@@ -64,6 +64,19 @@ function getBaseForms(word: string): string[] {
   return [...new Set(forms)];
 }
 
+function getExchangeBaseForm(exchange: string | null): string | null {
+  if (!exchange) return null;
+  for (const part of exchange.split('/')) {
+    const colonIdx = part.indexOf(':');
+    if (colonIdx === -1) continue;
+    const type = part.substring(0, colonIdx);
+    if (type === '0' || type === '1') {
+      return part.substring(colonIdx + 1);
+    }
+  }
+  return null;
+}
+
 export function lookupWord(word: string): DictEntry | null {
   const db = getDictDb();
   if (!db) return null;
@@ -71,19 +84,27 @@ export function lookupWord(word: string): DictEntry | null {
   const cleanWord = word.toLowerCase().replace(/[^a-z'-]/g, '');
   if (!cleanWord) return null;
 
-  const direct = db.prepare('SELECT * FROM stardict WHERE word = ? COLLATE NOCASE').get(cleanWord) as DictEntry | undefined;
-  if (direct) return direct;
+  const stmt = db.prepare('SELECT * FROM stardict WHERE word = ? COLLATE NOCASE');
+  const direct = stmt.get(cleanWord) as DictEntry | undefined;
+  if (direct) {
+    const baseForm = getExchangeBaseForm(direct.exchange);
+    if (baseForm) {
+      const baseEntry = stmt.get(baseForm) as DictEntry | undefined;
+      if (baseEntry) return baseEntry;
+    }
+    return direct;
+  }
 
   const baseForms = getBaseForms(cleanWord);
   for (const form of baseForms) {
     if (form === cleanWord) continue;
-    const entry = db.prepare('SELECT * FROM stardict WHERE word = ? COLLATE NOCASE').get(form) as DictEntry | undefined;
+    const entry = stmt.get(form) as DictEntry | undefined;
     if (entry) return entry;
   }
 
   if (/(.)\1(ing|ed)$/i.test(cleanWord)) {
     const base = cleanWord.replace(/(.)\1(ing|ed)$/i, '$1');
-    const entry = db.prepare('SELECT * FROM stardict WHERE word = ? COLLATE NOCASE').get(base) as DictEntry | undefined;
+    const entry = stmt.get(base) as DictEntry | undefined;
     if (entry) return entry;
   }
 
