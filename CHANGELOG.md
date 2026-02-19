@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1](https://github.com/zhaochy1990/eng-learner/compare/v0.2.0...v0.2.1) (2026-02-19)
+
+
+### Features
+
+* fix progress tracking, show vocab counts, translate titles ([#16](https://github.com/zhaochy1990/eng-learner/issues/16)) ([25cdd21](https://github.com/zhaochy1990/eng-learner/commit/25cdd21a2eff9ff8cc5ca6dd76bf268d9063fefc))
+
+
+### Bug Fixes
+
+* **api:** re-translate articles with missing title translation ([#18](https://github.com/zhaochy1990/eng-learner/issues/18)) ([c5a63c6](https://github.com/zhaochy1990/eng-learner/commit/c5a63c6e402e8ce866d9a01fcd0e525657dc5cfa))
+* **api:** resolve inflected words to base form via ECDICT exchange field ([10f4167](https://github.com/zhaochy1990/eng-learner/commit/10f4167c6b7b7aff2fad2ab801bef00d12f3d02a))
+* **frontend:** match inflected word forms for highlighting and sidebar ([#17](https://github.com/zhaochy1990/eng-learner/issues/17)) ([6783e60](https://github.com/zhaochy1990/eng-learner/commit/6783e601d9ad18b50833ad21f8d2ed93fe3a44f3))
+
 ## [0.2.0](https://github.com/zhaochy1990/eng-learner/compare/v0.1.3...v0.2.0) (2026-02-19)
 
 
