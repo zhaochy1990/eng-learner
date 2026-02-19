@@ -26,6 +26,31 @@ export default function RegisterPage() {
       return;
     }
 
+    if (password.length > 128) {
+      setError("Password must not exceed 128 characters");
+      return;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      setError("Password must contain at least one uppercase letter");
+      return;
+    }
+
+    if (!/[a-z]/.test(password)) {
+      setError("Password must contain at least one lowercase letter");
+      return;
+    }
+
+    if (!/[0-9]/.test(password)) {
+      setError("Password must contain at least one digit");
+      return;
+    }
+
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+      setError("Password must contain at least one special character");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -98,7 +123,7 @@ export default function RegisterPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="At least 8 characters"
+                placeholder="8+ chars, upper, lower, digit, special"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
