@@ -111,8 +111,8 @@ router.post('/:id/translate', async (req: Request, res: Response) => {
 
     // Idempotent: return existing translation if it includes the title
     if (article.translation) {
-      const contentParaCount = article.content.split(/\n\s*\n/).filter((p: string) => p.trim()).length;
-      const translationParaCount = article.translation.split(/\n\s*\n/).filter((p: string) => p.trim()).length;
+      const contentParaCount = String(article.content).split(/\n\s*\n/).filter((p: string) => p.trim()).length;
+      const translationParaCount = String(article.translation).split(/\n\s*\n/).filter((p: string) => p.trim()).length;
       if (translationParaCount === contentParaCount + 1) {
         res.json({ translation: article.translation });
         return;
