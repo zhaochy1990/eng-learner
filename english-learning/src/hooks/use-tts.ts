@@ -454,12 +454,10 @@ export function useTTS(options: UseTTSOptions): UseTTSReturn {
     clearCache();
     setCurrentSentenceIndex(0);
     currentSentenceIndexRef.current = 0;
-    // Start playing from beginning after clearing
-    setTimeout(() => {
-      setIsPlaying(true);
-      shouldContinueRef.current = true;
-      playSentenceRef.current(0);
-    }, 0);
+    // Restart playback from beginning after clearing
+    setIsPlaying(true);
+    shouldContinueRef.current = true;
+    playSentenceRef.current(0);
   }, [stop, clearCache]);
 
   // Reset when text changes — stop playback and clear cache
