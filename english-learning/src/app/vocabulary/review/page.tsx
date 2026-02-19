@@ -311,16 +311,16 @@ export default function VocabularyReviewPage() {
   // ---- Flashcard screen ----------------------------------------------------
 
   return (
-    <div className="mx-auto max-w-2xl py-12">
+    <div className="mx-auto flex h-[calc(100dvh-4rem)] max-w-2xl flex-col px-4 py-4">
       {/* Header: title + mode selector */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Review Session</h1>
         {renderModeSelector()}
       </div>
 
       {/* Progress bar + counter */}
-      <div className="mb-8">
-        <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+      <div className="mb-4">
+        <div className="mb-1 flex items-center justify-between text-sm text-muted-foreground">
           <span>Progress</span>
           <span>
             {currentIndex + 1} / {totalWords} words
@@ -329,13 +329,12 @@ export default function VocabularyReviewPage() {
         <Progress value={progressPercent} className="h-3" />
       </div>
 
-      {/* Flashcard */}
-      <div className="perspective-[1000px] mb-8">
+      {/* Flashcard -- grows to fill available space */}
+      <div className="perspective-[1000px] min-h-0 flex-1">
         <div
-          className={`relative mx-auto w-full cursor-pointer transition-transform duration-500 [transform-style:preserve-3d] ${
+          className={`relative h-full w-full cursor-pointer transition-transform duration-500 [transform-style:preserve-3d] ${
             isFlipped ? "[transform:rotateY(180deg)]" : ""
           }`}
-          style={{ minHeight: 320 }}
           onClick={handleFlip}
         >
           {/* ---- Front face ---- */}
@@ -344,13 +343,13 @@ export default function VocabularyReviewPage() {
               isFlipped ? "pointer-events-none" : ""
             }`}
           >
-            <CardContent className="flex w-full flex-col items-center gap-4 py-12">
-              <span className="text-3xl font-bold tracking-tight">
+            <CardContent className="flex w-full flex-col items-center gap-4">
+              <span className="text-4xl font-bold tracking-tight">
                 {currentWord?.word}
               </span>
 
               {currentWord?.phonetic && (
-                <span className="text-lg text-muted-foreground">
+                <span className="text-xl text-muted-foreground">
                   {currentWord.phonetic}
                 </span>
               )}
@@ -358,14 +357,14 @@ export default function VocabularyReviewPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-full"
+                className="h-12 w-12 rounded-full"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (currentWord) speak(currentWord.word);
                 }}
                 aria-label="Play pronunciation"
               >
-                <Volume2 className="h-5 w-5" />
+                <Volume2 className="h-6 w-6" />
               </Button>
 
               <p className="mt-4 text-sm text-muted-foreground">
@@ -380,13 +379,13 @@ export default function VocabularyReviewPage() {
               !isFlipped ? "pointer-events-none" : ""
             }`}
           >
-            <CardContent className="flex min-h-full w-full flex-col items-center justify-center gap-3 py-8">
-              <span className="text-2xl font-bold tracking-tight">
+            <CardContent className="flex min-h-full w-full flex-col items-center justify-center gap-4 py-8">
+              <span className="text-3xl font-bold tracking-tight">
                 {currentWord?.word}
               </span>
 
               {currentWord?.phonetic && (
-                <span className="text-base text-muted-foreground">
+                <span className="text-lg text-muted-foreground">
                   {currentWord.phonetic}
                 </span>
               )}
@@ -394,14 +393,14 @@ export default function VocabularyReviewPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-full"
+                className="h-12 w-12 rounded-full"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (currentWord) speak(currentWord.word);
                 }}
                 aria-label="Play pronunciation"
               >
-                <Volume2 className="h-5 w-5" />
+                <Volume2 className="h-6 w-6" />
               </Button>
 
               <div className="my-2 h-px w-3/4 bg-border" />
@@ -413,19 +412,19 @@ export default function VocabularyReviewPage() {
                     {currentWord.pos}
                   </Badge>
                 )}
-                <p className="text-lg font-medium">{currentWord?.translation}</p>
+                <p className="text-xl font-medium">{currentWord?.translation}</p>
               </div>
 
               {/* English definition */}
               {currentWord?.definition && (
-                <p className="max-w-sm text-center text-sm text-muted-foreground">
+                <p className="max-w-md text-center text-base text-muted-foreground">
                   {currentWord.definition}
                 </p>
               )}
 
               {/* Context sentence */}
               {currentWord?.context_sentence && (
-                <p className="max-w-sm text-center text-sm italic text-muted-foreground">
+                <p className="max-w-md text-center text-base italic text-muted-foreground">
                   &ldquo;{currentWord.context_sentence}&rdquo;
                 </p>
               )}
@@ -434,9 +433,9 @@ export default function VocabularyReviewPage() {
         </div>
       </div>
 
-      {/* Rating buttons -- only visible when flipped */}
+      {/* Rating buttons -- pinned at bottom */}
       <div
-        className={`flex justify-center gap-3 transition-opacity duration-300 ${
+        className={`flex shrink-0 justify-center gap-3 py-4 transition-opacity duration-300 ${
           isFlipped ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >

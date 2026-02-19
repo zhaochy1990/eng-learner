@@ -17,7 +17,7 @@ let publicKey: string;
 
 const keyContent = process.env.JWT_PUBLIC_KEY;
 if (keyContent) {
-  publicKey = keyContent;
+  publicKey = keyContent.replace(/\\n/g, '\n');
 } else {
   const keyPath = process.env.JWT_PUBLIC_KEY_PATH || '../auth/sources/dev/authentication/keys/public.pem';
   const resolved = path.resolve(keyPath);
