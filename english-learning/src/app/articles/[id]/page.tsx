@@ -28,6 +28,7 @@ import {
   Trash2,
   ALargeSmall,
   RefreshCw,
+  Languages,
 } from "lucide-react";
 
 export default function ArticleReaderPage() {
@@ -40,6 +41,9 @@ export default function ArticleReaderPage() {
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number | undefined>(undefined);
   const [showTTS, setShowTTS] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translation, setTranslation] = useState<string | null>(null);
+  const [translationLoading, setTranslationLoading] = useState(false);
   const [readerSettings, setReaderSettings] = useState<ReaderSettings>(loadSettings);
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -82,6 +86,29 @@ export default function ArticleReaderPage() {
     }
   }, [params.id, router]);
 
+  const handleTranslationToggle = useCallback(async () => {
+    if (translation) {
+      setShowTranslation((v) => !v);
+      return;
+    }
+    setTranslationLoading(true);
+    try {
+      const res = await apiFetch(`/api/articles/${params.id}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTranslation(data.translation);
+        setShowTranslation(true);
+      }
+    } catch (err) {
+      console.error("Failed to generate translation:", err);
+    } finally {
+      setTranslationLoading(false);
+    }
+  }, [params.id, translation]);
+
   // --- Fetch article data ---
   useEffect(() => {
     if (!params.id) return;
@@ -99,6 +126,9 @@ export default function ArticleReaderPage() {
       })
       .then((data) => {
         setArticle(data);
+        if (data.translation) {
+          setTranslation(data.translation);
+        }
         if (data.completed === 1) {
           completedRef.current = true;
         }
@@ -291,6 +321,20 @@ export default function ArticleReaderPage() {
             <AudioLines className="h-4 w-4" />
             {showTTS ? "Hide Player" : "Listen"}
           </Button>
+          <Button
+            variant={showTranslation ? "default" : "outline"}
+            size="sm"
+            className="gap-1.5"
+            onClick={handleTranslationToggle}
+            disabled={translationLoading}
+          >
+            {translationLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Languages className="h-4 w-4" />
+            )}
+            {translationLoading ? "Translating..." : showTranslation ? "Hide CN" : "CN"}
+          </Button>
           <div className="relative" ref={settingsRef}>
             <Button
               variant={showSettings ? "default" : "outline"}
@@ -402,6 +446,8 @@ export default function ArticleReaderPage() {
         currentSentenceIndex={currentSentenceIndex}
         onSentenceChange={handleSentenceChange}
         settings={readerSettings}
+        translation={translation}
+        showTranslation={showTranslation}
       />
 
       {/* TTS Player */}

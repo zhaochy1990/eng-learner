@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getAllArticles, createArticle, getArticleById, deleteArticle, updateReadingProgress } from '../lib/db';
+import { getAllArticles, createArticle, getArticleById, deleteArticle, updateReadingProgress, updateArticleTranslation } from '../lib/db';
 import { VALID_DIFFICULTIES, VALID_CATEGORIES } from '../lib/types';
 import { requireRole } from '../middleware/auth';
 
@@ -97,6 +97,76 @@ router.patch('/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('PATCH /api/articles/:id error:', error);
     res.status(500).json({ error: 'Failed to update progress' });
+  }
+});
+
+// POST /api/articles/:id/translate — generate Chinese translation
+router.post('/:id/translate', async (req: Request, res: Response) => {
+  try {
+    const article = await getArticleById(req.userId!, Number(req.params.id));
+    if (!article) {
+      res.status(404).json({ error: 'Article not found' });
+      return;
+    }
+
+    // Idempotent: return existing translation
+    if (article.translation) {
+      res.json({ translation: article.translation });
+      return;
+    }
+
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const apiKey = process.env.AZURE_OPENAI_API_KEY;
+    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+    if (!endpoint || !apiKey) {
+      res.status(503).json({ error: 'Azure OpenAI is not configured' });
+      return;
+    }
+
+    const systemPrompt = `You are a professional English-to-Chinese translator. Translate the following English article into natural, fluent Chinese.
+
+Rules:
+- Translate paragraph by paragraph. The output must have the EXACT same number of paragraphs as the input.
+- Separate paragraphs with double newlines (\\n\\n), matching the input structure.
+- Do NOT add any extra paragraphs, titles, notes, or explanations.
+- Keep the translation accurate and natural for Chinese readers.`;
+
+    const openaiUrl = `${endpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=2024-08-01-preview`;
+    const llmRes = await fetch(openaiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': apiKey,
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: article.content },
+        ],
+        temperature: 0.3,
+        max_tokens: 8000,
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!llmRes.ok) {
+      console.error('Azure OpenAI error:', llmRes.status, await llmRes.text());
+      res.status(502).json({ error: 'Translation failed' });
+      return;
+    }
+
+    const llmData = await llmRes.json() as { choices?: { message?: { content?: string } }[] };
+    const translation = llmData.choices?.[0]?.message?.content;
+    if (!translation) {
+      res.status(502).json({ error: 'Empty translation response' });
+      return;
+    }
+
+    await updateArticleTranslation(Number(req.params.id), translation);
+    res.json({ translation });
+  } catch (error) {
+    console.error('POST /api/articles/:id/translate error:', error);
+    res.status(500).json({ error: 'Translation failed' });
   }
 });
 

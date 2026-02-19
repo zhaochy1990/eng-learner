@@ -22,6 +22,8 @@ interface ArticleReaderProps {
   currentSentenceIndex?: number;
   onSentenceChange?: (sentenceIndex: number) => void;
   settings: ReaderSettings;
+  translation?: string | null;
+  showTranslation?: boolean;
 }
 
 export type FontSize = "small" | "medium" | "large";
@@ -162,6 +164,8 @@ export function ArticleReader({
   currentSentenceIndex,
   onSentenceChange,
   settings,
+  translation,
+  showTranslation,
 }: ArticleReaderProps) {
   const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
   const [activeWord, setActiveWord] = useState<{
@@ -184,6 +188,10 @@ export function ArticleReader({
   const readerRef = useRef<HTMLDivElement>(null);
 
   const paragraphs = useMemo(() => tokenise(article.content), [article.content]);
+  const translationParagraphs = useMemo(
+    () => (translation ? splitParagraphs(translation) : []),
+    [translation]
+  );
   const titleWords = useMemo(() => tokeniseWords(article.title), [article.title]);
 
   // --- fetch saved words on mount ---
@@ -360,52 +368,59 @@ export function ArticleReader({
         )}
       >
         {paragraphs.map((paragraph) => (
-          <p
+          <div
             key={paragraph.index}
             data-paragraph-index={paragraph.index}
             className="mb-6"
           >
-            {paragraph.sentences.map((sentence) => (
-              <span
-                key={sentence.globalIndex}
-                data-sentence-index={sentence.globalIndex}
-                className={cn(
-                  "transition-colors duration-200",
-                  currentSentenceIndex === sentence.globalIndex &&
-                    "bg-primary/10 rounded px-0.5 -mx-0.5"
-                )}
-                onClick={() => handleSentenceClick(sentence.globalIndex)}
-              >
-                {sentence.words.map((word, wordIdx) => {
-                  const isSaved = word.clean && isWordSaved(word.clean);
-                  const isClickable = /[a-zA-Z]/.test(word.clean);
+            <p>
+              {paragraph.sentences.map((sentence) => (
+                <span
+                  key={sentence.globalIndex}
+                  data-sentence-index={sentence.globalIndex}
+                  className={cn(
+                    "transition-colors duration-200",
+                    currentSentenceIndex === sentence.globalIndex &&
+                      "bg-primary/10 rounded px-0.5 -mx-0.5"
+                  )}
+                  onClick={() => handleSentenceClick(sentence.globalIndex)}
+                >
+                  {sentence.words.map((word, wordIdx) => {
+                    const isSaved = word.clean && isWordSaved(word.clean);
+                    const isClickable = /[a-zA-Z]/.test(word.clean);
 
-                  return (
-                    <span key={wordIdx}>
-                      {isClickable ? (
-                        <span
-                          className={cn(
-                            "cursor-pointer rounded-sm transition-colors hover:bg-primary/10",
-                            isSaved &&
-                              "underline decoration-primary/40 decoration-2 underline-offset-4"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleWordClick(e, word.text, sentence.raw);
-                          }}
-                        >
-                          {word.text}
-                        </span>
-                      ) : (
-                        <span>{word.text}</span>
-                      )}
-                      {wordIdx < sentence.words.length - 1 && " "}
-                    </span>
-                  );
-                })}
-              </span>
-            ))}
-          </p>
+                    return (
+                      <span key={wordIdx}>
+                        {isClickable ? (
+                          <span
+                            className={cn(
+                              "cursor-pointer rounded-sm transition-colors hover:bg-primary/10",
+                              isSaved &&
+                                "underline decoration-primary/40 decoration-2 underline-offset-4"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleWordClick(e, word.text, sentence.raw);
+                            }}
+                          >
+                            {word.text}
+                          </span>
+                        ) : (
+                          <span>{word.text}</span>
+                        )}
+                        {wordIdx < sentence.words.length - 1 && " "}
+                      </span>
+                    );
+                  })}
+                </span>
+              ))}
+            </p>
+            {showTranslation && translationParagraphs[paragraph.index] && (
+              <p className="mt-2 text-sm text-muted-foreground border-l-2 border-primary/20 pl-3">
+                {translationParagraphs[paragraph.index]}
+              </p>
+            )}
+          </div>
         ))}
       </div>
 
