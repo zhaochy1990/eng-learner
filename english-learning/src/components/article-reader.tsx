@@ -8,7 +8,7 @@ import { ALargeSmall, X, Languages, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { splitParagraphs, splitSentences } from "@/lib/text-utils";
 import type { Article } from "@/lib/types";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -196,7 +196,7 @@ export function ArticleReader({
 
   // --- fetch saved words on mount ---
   useEffect(() => {
-    fetch(apiUrl("/api/vocabulary"))
+    apiFetch("/api/vocabulary")
       .then((res) => res.json())
       .then((data: { word: string }[]) => {
         const words = new Set(
@@ -299,7 +299,7 @@ export function ArticleReader({
 
     setTranslating(true);
     try {
-      const res = await fetch(apiUrl("/api/translate"), {
+      const res = await apiFetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: selectionPopup.text }),

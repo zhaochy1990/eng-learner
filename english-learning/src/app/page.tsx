@@ -22,7 +22,7 @@ import {
   Brain,
 } from "lucide-react";
 import type { Article } from "@/lib/types";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 interface Stats {
   totalWords: number;
@@ -51,8 +51,8 @@ export default function DashboardPage() {
     async function fetchData() {
       try {
         const [statsRes, articlesRes] = await Promise.all([
-          fetch(apiUrl("/api/stats")),
-          fetch(apiUrl("/api/articles")),
+          apiFetch("/api/stats"),
+          apiFetch("/api/articles"),
         ]);
         const statsData = await statsRes.json();
         const articlesData = await articlesRes.json();

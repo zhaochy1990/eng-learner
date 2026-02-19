@@ -13,7 +13,7 @@ function escapeCsv(s: string | number | null | undefined): string {
 // GET /api/vocabulary/export
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const vocabulary = await getVocabulary() as Array<{
+    const vocabulary = await getVocabulary(req.userId!) as Array<{
       word: string;
       phonetic: string | null;
       translation: string;

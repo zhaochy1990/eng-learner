@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Library, GraduationCap, LayoutDashboard } from "lucide-react";
+import { BookOpen, Library, GraduationCap, LayoutDashboard, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -14,6 +16,12 @@ const navItems = [
 
 export function NavBar() {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+
+  // Hide on auth pages
+  if (pathname === "/login" || pathname === "/register") {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -46,6 +54,20 @@ export function NavBar() {
             );
           })}
         </nav>
+        <div className="ml-auto flex items-center gap-3">
+          {user && (
+            <>
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <User className="h-4 w-4" />
+                {user.name || user.email}
+              </span>
+              <Button variant="ghost" size="sm" onClick={logout} className="gap-1.5">
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

@@ -6,8 +6,8 @@ const router = Router();
 // GET /api/stats
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const stats = await getStats();
-    const lastRead = await getLastReadArticle();
+    const stats = await getStats(req.userId!);
+    const lastRead = await getLastReadArticle(req.userId!);
 
     res.json({
       ...stats,

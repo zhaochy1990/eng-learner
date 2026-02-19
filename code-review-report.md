@@ -1,115 +1,55 @@
 # Code Review Report
 
-**Scope**: `/home/zhaochy/learning` (full project)
-**Files scanned**: 50+
-**Date**: 2026-02-18
+**PR**: [#4 feat: add user authentication via external auth service](https://github.com/zhaochy1990/eng-learner/pull/4)
+**Author**: zhaochy1990
+**Branch**: `feat/user-auth` -> `master`
+**Files changed**: 26
+**Date**: 2026-02-19
 
 ## Summary
-- CRITICAL: 2
-- HIGH: 5
-- MEDIUM: 9
-- LOW: 5
+- 🔴 Critical: 1
+- 🟠 High: 3
+- 🟡 Medium: 3
+- 🔵 Low: 2
 
 ## Inline Findings
 
 ### Security
-
-- `english-learning-api/.env:4` — [CRITICAL] Hardcoded database password (`YourDevPassword123!`) in a file tracked by git. The `.env` file appears to be committed (shows as modified in `git status`), leaking credentials into version history.
-  - **Suggestion**: Remove `.env` from git tracking (`git rm --cached english-learning-api/.env`), add it to root `.gitignore`, and rotate the password. Provide a `.env.example` with placeholder values instead.
-
-- `docker-compose.yml:6,30` — [CRITICAL] SA password (`YourDevPassword123!`) hardcoded in plain text in a committed file. Same password appears in both the `sqlserver` service and the `api` service environment.
-  - **Suggestion**: Use a `.env` file (gitignored) for docker-compose variables with `${DB_PASSWORD}` interpolation, or use Docker secrets.
-
-- `english-learning-api/src/index.ts:22` — [HIGH] No request body size limit on `express.json()`. An attacker could send arbitrarily large JSON payloads to exhaust server memory.
-  - **Suggestion**: Add `express.json({ limit: '1mb' })` or an appropriate limit.
-
-- `english-learning-api/src/routes/*` — [HIGH] No authentication or authorization on any API endpoint. All CRUD operations (articles, vocabulary, review) are publicly accessible.
-  - **Suggestion**: Add authentication middleware (e.g., session-based or JWT) if the app will be exposed beyond localhost.
-
-- `english-learning-api/src/routes/*` — [MEDIUM] No rate limiting on any endpoint. Dictionary lookups, review submissions, and article creation can be called without throttling.
-  - **Suggestion**: Add `express-rate-limit` middleware to protect against abuse.
-
-- `english-learning-api/src/routes/review.ts:19` — [MEDIUM] The `limit` query parameter is parsed with `Number()` but not bounded. A request like `?limit=999999999` could attempt to fetch all records.
-  - **Suggestion**: Clamp `limit` to a reasonable max: `Math.min(Number(req.query.limit || '30'), 100)`.
-
-- `english-learning-api/src/routes/articles.ts:61` — [LOW] `Number(req.params.id)` converts non-numeric strings to `NaN`, which passes through to the SQL query. While parameterized queries prevent injection, `NaN` may cause unexpected behavior.
-  - **Suggestion**: Validate that the ID is a positive integer and return 400 if not.
+- `english-learning/src/lib/auth-client.ts:59` — [HIGH] `logged_in` cookie set without `Secure`, `SameSite`, or `HttpOnly` flags. Can be leaked over plain HTTP in production or exploited in cross-site scenarios.
+  - **Suggestion**: Use `document.cookie = 'logged_in=1; path=/; SameSite=Lax; Secure';` and apply the same attributes on the clear at line 65.
+- `english-learning-api/src/middleware/auth.ts:20-23` — [HIGH] Module-level `fs.readFileSync` with a hardcoded fallback path (`../auth/sources/dev/authentication/keys/public.pem`) that leaks internal directory structure. If neither `JWT_PUBLIC_KEY` nor `JWT_PUBLIC_KEY_PATH` is set, the server crashes with an opaque `ENOENT` error on startup.
+  - **Suggestion**: Wrap in try/catch, log `"JWT public key not configured — set JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH"`, and call `process.exit(1)`. Remove the hardcoded default path.
+- `english-learning-api/src/middleware/auth.ts:43` — [MEDIUM] `decoded.sub` may be `undefined` if the JWT lacks a `sub` claim. All route handlers use `req.userId!` non-null assertion, so an undefined `sub` would propagate as a literal `undefined` string into every SQL query.
+  - **Suggestion**: Add a guard: `if (!decoded.sub) { res.status(401).json({ error: 'Token missing sub claim' }); return; }`.
+- `english-learning/src/lib/auth-client.ts:57-58` — [MEDIUM] Access and refresh tokens stored in `sessionStorage`, accessible to any JS on the page. An XSS vector (e.g., unsanitized article content) would leak both tokens.
+  - **Suggestion**: Accept as known SPA trade-off. Document it. Ensure article content rendering is XSS-safe.
 
 ### Performance
-
-- `english-learning/src/components/article-reader.tsx:180-191` — [MEDIUM] Fetches the entire vocabulary list (`GET /api/vocabulary`) on every article page mount just to build a `Set` of saved words for highlighting. With large vocabulary sets, this wastes bandwidth and time.
-  - **Suggestion**: Add a lightweight API endpoint (e.g., `GET /api/vocabulary/words`) that returns only the word strings, or use a server-side check.
-
-- `english-learning/src/app/page.tsx:53-60` — [MEDIUM] Dashboard fetches all articles (`GET /api/articles`) then `.slice(0, 8)` on the client. Transfers unnecessary data.
-  - **Suggestion**: Add a `limit` query parameter to the articles API and use `?limit=8` on the dashboard.
-
-- `english-learning-api/src/lib/dictionary.ts:74-81` — [MEDIUM] `db.prepare()` is called inside a loop for each base form lookup. While `better-sqlite3` caches prepared statements internally, explicitly preparing once and reusing would be cleaner and marginally faster.
-  - **Suggestion**: Prepare the lookup statement once at module level: `const lookupStmt = db.prepare('SELECT * FROM stardict WHERE word = ? COLLATE NOCASE')`.
-
-- `english-learning-api/src/routes/export.ts:16` — [LOW] CSV export fetches all vocabulary with no pagination. Very large vocabularies could cause high memory usage and slow responses.
-  - **Suggestion**: Consider streaming the CSV response for large datasets.
+No issues found.
 
 ### Concurrency
-
-- `english-learning-api/src/lib/db.ts:18-24` — [MEDIUM] `initPool()` has a race condition. If called concurrently before `pool` is set, multiple connection pools could be created. Node.js is single-threaded for synchronous code, but the `await` yields control.
-  - **Suggestion**: Store the connection promise (not the result) to deduplicate concurrent calls: `let poolPromise: Promise<sql.ConnectionPool> | null = null;`.
+- `english-learning/src/lib/api.ts:25-30` — [MEDIUM] When token refresh fails in `apiFetch`, `clearTokens()` runs and `window.location.href` is set, but the function still returns the original 401 `Response` at line 33. Callers may `.json()` the stale response before the redirect fires, causing unhandled errors in the UI.
+  - **Suggestion**: `throw new Error('Session expired')` after `clearTokens()` instead of falling through to `return res`.
 
 ### Code Quality
-
-- `CLAUDE.md` — [MEDIUM] Documentation states the app database is SQLite with `better-sqlite3`, but `db.ts` now uses `mssql` (Azure SQL). The "Two SQLite Databases" section, data flow description, and "synchronous `better-sqlite3` functions" note are all outdated.
-  - **Suggestion**: Update CLAUDE.md to reflect the Azure SQL migration. Keep the ECDICT SQLite reference accurate.
-
-- `english-learning/src/app/page.tsx:79-81` and `english-learning/src/app/articles/page.tsx:100-109` — [MEDIUM] `scroll_position` is treated as a 0-1 fraction (multiplied by 100 for percentage), but the save logic at `english-learning/src/app/articles/[id]/page.tsx:100,109` stores `window.scrollY` (absolute pixels). The dashboard and article list progress bars display nonsensical values.
-  - **Suggestion**: Normalize `scroll_position` to a 0-1 fraction before saving: `scrollPos / document.documentElement.scrollHeight`. Or store pixels and compute percentage on display.
-
-- `english-learning-api/scripts/migrate-data.ts:99,124,156` — [MEDIUM] SQL string interpolation in `DBCC CHECKIDENT` calls: `` `DBCC CHECKIDENT ('articles', RESEED, ${maxId})` ``. While `maxId` is typed as `number`, this bypasses parameterized query safety.
-  - **Suggestion**: Use parameterized input or explicitly validate `maxId` is a safe integer before interpolation.
-
-- `english-learning-api/src/lib/db.ts:96-100` — [LOW] `toISOString` truncates timezone info by removing `T` and taking a substring. This produces ambiguous datetime strings that could be misinterpreted.
-  - **Suggestion**: Return ISO 8601 format directly or document the expected format.
-
-- `english-learning/src/app/vocabulary/review/page.tsx:17-26` — [LOW] `VocabularyWord` interface duplicates `VocabularyItem` from `@/lib/types` (comment at line 15 even mentions it but doesn't use it).
-  - **Suggestion**: Import and use `VocabularyItem` from `@/lib/types` instead of the local duplicate.
-
-- `english-learning/src/app/vocabulary/page.tsx:67-69` — [LOW] `getMasteryStars` duplicates the same function from the API's `spaced-repetition.ts`. Could reuse a shared utility.
-  - **Suggestion**: Move to a shared frontend utility or import from `@/lib/spaced-repetition`.
+- `english-learning-api/src/lib/db.ts:67-69,86-88` — [CRITICAL] Destructive auto-migration: `DROP TABLE reading_progress` / `DROP TABLE vocabulary` runs on every server startup if the tables exist but lack a `user_id` column. Deploying this against an existing production database silently destroys all vocabulary and reading progress data with no confirmation or backup.
+  - **Suggestion**: Gate behind an explicit env flag (e.g., `ALLOW_DESTRUCTIVE_MIGRATION=true`), or use a non-destructive `ALTER TABLE ADD COLUMN` with a default value, or at minimum log a loud warning before dropping.
+- `english-learning/src/contexts/auth-context.tsx:96-100` — [LOW] `login` calls `getMe()` after `authLogin()` succeeds. If `getMe()` throws, tokens are stored but `user` stays `null` — the user lands on `/` with a broken UI (no profile, no logout button).
+  - **Suggestion**: Wrap `getMe()` in try/catch; on failure call `clearTokens()` and re-throw so the login page shows the error.
+- `english-learning-api/src/lib/db.ts:279` — [LOW] `WHERE 1=1 AND v.user_id = @userId` — `user_id` is a mandatory filter, not optional. Using it after `1=1` conflates it with the dynamic optional filters pattern.
+  - **Suggestion**: Change to `WHERE v.user_id = @userId` as the base clause, keeping `AND` appends only for optional filters.
 
 ### Test Coverage
-
-- `english-learning-api/` — [HIGH] Zero test files exist. No unit tests for database functions (`db.ts`), spaced-repetition algorithm (`spaced-repetition.ts`), dictionary lookup (`dictionary.ts`), or any route handler.
-  - **Suggestion**: Add tests for: `calculateNextReview` (pure function, easy to test), `getBaseForms` inflection logic, route handlers with supertest, and database operations with an in-memory/test database.
-
-- `english-learning/` — [HIGH] Zero test files exist. No component tests, no integration tests, no e2e tests for the frontend.
-  - **Suggestion**: Add Vitest + React Testing Library for component tests. Prioritize: `text-utils.ts` (pure functions), `use-tts.ts` hook behavior, and `article-reader.tsx` word tokenization.
-
-- `english-learning-api/src/lib/spaced-repetition.ts` — [HIGH] The SM-2 algorithm variant is a core business logic module with no tests. Edge cases (boundary mastery levels, interval calculations, timezone handling) are untested.
-  - **Suggestion**: Add unit tests covering all 4 ratings at each mastery level (0-3), verifying both `newLevel` and `nextReviewAt` output.
-
-## Architecture Observations
-
-1. **Documentation drift**: CLAUDE.md describes SQLite as the app database, but the codebase has migrated to Azure SQL (`mssql`). This will mislead future contributors and AI assistants working on the project.
-
-2. **No authentication layer**: All API endpoints are unauthenticated. If deployed beyond localhost, any user can delete articles, manipulate vocabulary, or export data. Consider adding at least basic auth or API key middleware.
-
-3. **Mixed database paradigm**: The dictionary uses synchronous `better-sqlite3` while app data uses async `mssql`. Route handlers must handle both patterns. This is acceptable given the read-only nature of the dictionary, but worth documenting.
-
-4. **No pagination**: Neither the articles list nor vocabulary list endpoints support pagination. Both return all records. This will degrade as data grows.
-
-5. **Credentials in version control**: The SA password appears in both `docker-compose.yml` and the `.env` file. Even if rotated, the credentials exist in git history.
-
-6. **Zero test coverage**: The CI pipeline (`ci.yml`) runs only `lint` and `build`. There is no test step because no tests exist. This is the single largest quality gap in the project.
-
-7. **Incomplete features**: The "AI Generate" and "Web Search" tabs in `add-article-dialog.tsx` are placeholder stubs that display "coming soon" messages. Consider removing them or marking them as disabled to avoid user confusion.
+- `english-learning-api/src/middleware/auth.ts` — [HIGH] No tests for the `requireAuth` middleware — the sole security gate for the entire API. Missing token, invalid token, expired token, and missing `sub` claim paths are untested.
+  - **Suggestion**: Add unit tests for: (1) missing Authorization header -> 401, (2) malformed token -> 401, (3) expired token -> 401, (4) valid token -> `req.userId` set and `next()` called.
+- `english-learning/src/lib/api.ts` — [HIGH] No tests for `apiFetch` 401-retry logic. Token refresh, retry, and redirect-on-failure are critical paths with zero coverage.
+  - **Suggestion**: Add tests mocking `fetch` and `authRefresh` to verify: (1) token attached to requests, (2) 401 triggers refresh + retry, (3) refresh failure clears tokens.
 
 ## Recommendations
-
-1. **Remove credentials from git history** — Rotate the SA password, remove `.env` from tracking, and use `.env.example` with placeholders. Update `docker-compose.yml` to reference environment variables.
-2. **Add tests** — Start with pure functions (`spaced-repetition.ts`, `text-utils.ts`, `getBaseForms`), then add API route integration tests with `supertest`. Aim for core business logic coverage first.
-3. **Fix scroll_position bug** — Normalize to a 0-1 fraction before saving, so dashboard and article list progress bars display correctly.
-4. **Add request body size limit** — `express.json({ limit: '1mb' })` to prevent memory exhaustion.
-5. **Add pagination** — Both articles and vocabulary list endpoints should support `limit` and `offset` parameters.
-6. **Update CLAUDE.md** — Reflect the Azure SQL migration to keep documentation accurate.
-7. **Add authentication** — At minimum, API key middleware before deploying beyond localhost.
-8. **Fix initPool race condition** — Cache the connection promise, not just the result.
-9. **Bound the review limit parameter** — Clamp to a reasonable max (e.g., 100).
-10. **Add a CI test step** — Once tests exist, add `npm test` to the CI workflow.
+1. **Gate the destructive migration** (CRITICAL) — Prevent accidental data loss by requiring an explicit opt-in or using non-destructive `ALTER TABLE`.
+2. **Add `Secure; SameSite=Lax` to `logged_in` cookie** — One-line fix with meaningful security improvement.
+3. **Fail fast with a clear error when JWT public key is missing** — Prevents cryptic startup crashes in deployment.
+4. **Guard against missing `sub` claim** in `requireAuth` — Prevents `undefined` userId from propagating through all DB queries.
+5. **Add tests for `requireAuth` and `apiFetch`** — These are the two most critical auth code paths and currently have zero coverage.
+6. **Throw on refresh failure in `apiFetch`** instead of returning the stale 401 response.
+7. **Minor**: Fix `WHERE 1=1 AND` style in `getVocabulary`; handle `getMe()` failure after login.

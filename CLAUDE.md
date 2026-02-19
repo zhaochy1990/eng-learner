@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 English Learning Web App for Chinese-speaking professionals. A monorepo with two packages:
 
 - **`english-learning/`** — Next.js 16 frontend (App Router, TypeScript, Tailwind CSS v4, shadcn/ui new-york style)
-- **`english-learning-api/`** — Express 5 API backend (TypeScript, better-sqlite3)
+- **`english-learning-api/`** — Express 5 API backend (TypeScript, better-sqlite3, JWT auth)
 
 ## Commands
 
@@ -18,6 +18,7 @@ npm run dev      # Start dev server (http://localhost:3000)
 npm run build    # Production build
 npm run start    # Start production server
 npm run lint     # ESLint (eslint-config-next with core-web-vitals + typescript)
+npm run test     # Run Vitest tests
 ```
 
 ### API (`english-learning-api/`)
@@ -27,6 +28,7 @@ npm run dev      # Start dev server with hot-reload (tsx watch)
 npm run build    # Compile TypeScript (tsc)
 npm run start    # Start production server (node dist/index.js)
 npm run lint     # Type-check (tsc --noEmit)
+npm run test     # Run Vitest tests
 ```
 
 ### Root (monorepo)
@@ -54,6 +56,7 @@ cd english-learning-api
 npm install
 # Azure SQL must be running (e.g., `docker-compose up sqlserver`)
 # Configure .env with database connection details (DB_SERVER, DB_NAME, DB_USER, DB_PASSWORD, etc.)
+# Configure auth: JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH, JWT_ISSUER
 ```
 
 ## Commit Convention
@@ -99,11 +102,21 @@ git push origin master --follow-tags
 
 ### Data Flow
 
-Frontend pages (client components) fetch from the Express API backend. The API uses async `mssql` for app data and synchronous `better-sqlite3` for the read-only dictionary. All SQL is hand-written with parameterized queries. The frontend has one Next.js API route (`/api/tts`) for text-to-speech.
+Frontend pages (client components) fetch from the Express API backend via `apiFetch()` which attaches JWT Bearer tokens and handles 401 auto-refresh. The API uses async `mssql` for app data and synchronous `better-sqlite3` for the read-only dictionary. All SQL is hand-written with parameterized queries. The frontend has one Next.js API route (`/api/tts`) for text-to-speech.
+
+### Authentication
+
+- The API delegates user management to an external Rust auth service; it only verifies RS256 access tokens via a public key.
+- **`middleware/auth.ts`** — `requireAuth` middleware verifies RS256 JWTs. Applied globally to all `/api` routes. Sets `req.userId` from `decoded.sub`.
+- **`lib/auth-client.ts`** (frontend) — Login, register, refresh, logout, token storage (`sessionStorage`), proactive refresh timer.
+- **`contexts/auth-context.tsx`** — React context providing `user`, `login`, `register`, `logout` actions. Auto-checks auth on mount.
+- **`middleware.ts`** (Next.js) — Route protection via `logged_in` cookie check; redirects to `/login` for unauthenticated users.
+- **`lib/api.ts`** — `apiFetch()` wraps `fetch` with Bearer token injection and 401 auto-refresh retry.
+- Vocabulary and reading progress are scoped per-user (`user_id` column). Articles remain shared.
 
 ### Key Backend Modules (`english-learning-api/src/`)
 
-- **`lib/db.ts`** — Connection pool singleton (`mssql`), Azure SQL, async operations, schema auto-migration, all CRUD operations for articles/vocabulary/progress/stats.
+- **`lib/db.ts`** — Connection pool singleton (`mssql`), Azure SQL, async operations, schema auto-migration, all CRUD operations for articles/vocabulary/progress/stats. All user-scoped functions accept `userId` param.
 - **`lib/dictionary.ts`** — ECDICT word lookup with inflection handling. Tries direct match first, then algorithmic base forms (suffix stripping), then doubled-consonant patterns.
 - **`lib/spaced-repetition.ts`** — SM-2 algorithm variant. Four mastery levels (0=New, 1=Learning, 2=Familiar, 3=Mastered). Four ratings (again/hard/good/easy). All timestamps are UTC.
 - **`lib/types.ts`** — Shared TypeScript interfaces and validation constants.
@@ -124,7 +137,9 @@ Frontend pages (client components) fetch from the Express API backend. The API u
 - **`components/word-popover.tsx`** — Dictionary popup shown on word click. Displays translation, phonetic, POS, definition. Has "Save Word" action.
 - **`components/tts-player.tsx`** — TTS controls (play/pause, speed, sentence navigation). Uses `use-tts.ts` hook which wraps Web Speech API.
 - **`components/add-article-dialog.tsx`** — Multi-mode article creation (paste text, import URL, AI generate, web search).
+- **`components/nav-bar.tsx`** — Top navigation with user display and logout button. Hidden on auth pages.
 - **`components/ui/`** — shadcn/ui components. Add new ones via `npx shadcn@latest add <component>`.
+- **`app/login/page.tsx`** and **`app/register/page.tsx`** — Auth pages (shadcn/ui).
 
 ### Path Aliases
 

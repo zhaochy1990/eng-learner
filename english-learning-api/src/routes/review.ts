@@ -18,7 +18,7 @@ router.get('/', async (req: Request, res: Response) => {
       : 'due';
     const limit = Number(req.query.limit || '30');
 
-    const words = await getWordsForReview(mode, limit);
+    const words = await getWordsForReview(req.userId!, mode, limit);
     res.json(words);
   } catch (error) {
     console.error('GET /api/vocabulary/review error:', error);
@@ -42,7 +42,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const { newLevel, nextReviewAt } = calculateNextReview(currentLevel || 0, rating);
-    await updateWordReview(wordId, newLevel, nextReviewAt);
+    await updateWordReview(req.userId!, wordId, newLevel, nextReviewAt);
 
     res.json({ newLevel, nextReviewAt });
   } catch (error) {

@@ -1,12 +1,12 @@
 # Eng Learner
 
-English Learning Web App for Chinese-speaking professionals. A monorepo with a Next.js frontend and an Express API backend, both backed by SQLite.
+English Learning Web App for Chinese-speaking professionals. A monorepo with a Next.js frontend and an Express API backend, with JWT-based user authentication.
 
 ## Project Structure
 
 ```
 english-learning/       # Next.js 16 frontend (App Router, Tailwind CSS v4, shadcn/ui)
-english-learning-api/   # Express 5 API backend (better-sqlite3)
+english-learning-api/   # Express 5 API backend (Azure SQL, JWT auth)
 .github/workflows/      # CI/CD (Docker image builds)
 ```
 
@@ -32,6 +32,9 @@ npm run dev                       # http://localhost:3000
 ```bash
 cd english-learning-api
 npm install
+# Configure .env: DB_SERVER, DB_NAME, DB_USER, DB_PASSWORD
+# Configure auth: JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH, JWT_ISSUER
+# Configure frontend: NEXT_PUBLIC_AUTH_URL, NEXT_PUBLIC_AUTH_CLIENT_ID
 npm run dev
 ```
 
