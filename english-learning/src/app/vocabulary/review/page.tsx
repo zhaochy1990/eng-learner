@@ -376,11 +376,11 @@ export default function VocabularyReviewPage() {
 
           {/* ---- Back face ---- */}
           <Card
-            className={`absolute inset-0 flex items-center justify-center [backface-visibility:hidden] [transform:rotateY(180deg)] ${
+            className={`absolute inset-0 overflow-y-auto [backface-visibility:hidden] [transform:rotateY(180deg)] ${
               !isFlipped ? "pointer-events-none" : ""
             }`}
           >
-            <CardContent className="flex w-full flex-col items-center gap-3 py-8">
+            <CardContent className="flex min-h-full w-full flex-col items-center justify-center gap-3 py-8">
               <span className="text-2xl font-bold tracking-tight">
                 {currentWord?.word}
               </span>
