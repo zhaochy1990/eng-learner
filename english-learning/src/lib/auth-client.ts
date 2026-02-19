@@ -88,7 +88,7 @@ export async function authLogin(email: string, password: string): Promise<TokenR
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Login failed');
+    throw new Error(data.message || data.error || 'Login failed');
   }
 
   const data: TokenResponse = await res.json();
@@ -108,7 +108,7 @@ export async function authRegister(email: string, password: string, name?: strin
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Registration failed');
+    throw new Error(data.message || data.error || 'Registration failed');
   }
 
   const data: RegisterResponse = await res.json();
