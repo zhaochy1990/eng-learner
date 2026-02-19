@@ -16,7 +16,7 @@ vi.mock('fs', () => ({
 }));
 
 import jwt from 'jsonwebtoken';
-import { requireAuth } from '../src/middleware/auth';
+import { requireAuth, requireRole } from '../src/middleware/auth';
 
 function mockReq(authHeader?: string): Partial<Request> {
   return {
@@ -119,6 +119,35 @@ describe('requireAuth', () => {
     expect(res._status).toBe(0); // status() never called
   });
 
+  it('sets req.userRole from token role claim', () => {
+    vi.mocked(jwt.verify).mockReturnValue({
+      sub: 'user-123',
+      role: 'admin',
+    } as unknown as ReturnType<typeof jwt.verify>);
+
+    const req = mockReq('Bearer valid-token');
+    const res = mockRes();
+
+    requireAuth(req as Request, res as Response, next);
+
+    expect(req.userRole).toBe('admin');
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('leaves req.userRole undefined when token has no role', () => {
+    vi.mocked(jwt.verify).mockReturnValue({
+      sub: 'user-123',
+    } as unknown as ReturnType<typeof jwt.verify>);
+
+    const req = mockReq('Bearer valid-token');
+    const res = mockRes();
+
+    requireAuth(req as Request, res as Response, next);
+
+    expect(req.userRole).toBeUndefined();
+    expect(next).toHaveBeenCalledOnce();
+  });
+
   it('verifies token with RS256 algorithm', () => {
     vi.mocked(jwt.verify).mockReturnValue({
       sub: 'user-456',
@@ -133,5 +162,56 @@ describe('requireAuth', () => {
       algorithms: ['RS256'],
       issuer: expect.any(String),
     });
+  });
+});
+
+describe('requireRole', () => {
+  let next: NextFunction;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    next = vi.fn();
+  });
+
+  it('calls next() when role matches', () => {
+    const req = { userRole: 'admin' } as Partial<Request>;
+    const res = mockRes();
+
+    requireRole('admin')(req as Request, res as Response, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(res._status).toBe(0);
+  });
+
+  it('calls next() when role matches one of multiple allowed roles', () => {
+    const req = { userRole: 'editor' } as Partial<Request>;
+    const res = mockRes();
+
+    requireRole('admin', 'editor')(req as Request, res as Response, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(res._status).toBe(0);
+  });
+
+  it('returns 403 when role does not match', () => {
+    const req = { userRole: 'user' } as Partial<Request>;
+    const res = mockRes();
+
+    requireRole('admin')(req as Request, res as Response, next);
+
+    expect(res._status).toBe(403);
+    expect(res._json).toEqual({ error: 'Forbidden: insufficient role' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when userRole is undefined', () => {
+    const req = {} as Partial<Request>;
+    const res = mockRes();
+
+    requireRole('admin')(req as Request, res as Response, next);
+
+    expect(res._status).toBe(403);
+    expect(res._json).toEqual({ error: 'Forbidden: insufficient role' });
+    expect(next).not.toHaveBeenCalled();
   });
 });

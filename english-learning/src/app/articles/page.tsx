@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { AddArticleDialog } from "@/components/add-article-dialog";
 import type { Article } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/contexts/auth-context";
 
 const DIFFICULTY_OPTIONS = [
   { value: "all", label: "All" },
@@ -39,6 +40,8 @@ function truncate(text: string, maxLength: number): string {
 }
 
 export default function ArticlesPage() {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [difficulty, setDifficulty] = useState("all");
@@ -113,10 +116,12 @@ export default function ArticlesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Articles</h1>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="size-4" />
-          Add Article
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="size-4" />
+            Add Article
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -177,7 +182,7 @@ export default function ArticlesPage() {
               ? "Try adjusting your filters or search query."
               : "Add your first article to get started."}
           </p>
-          {!searchQuery && difficulty === "all" && category === "all" && (
+          {isAdmin && !searchQuery && difficulty === "all" && category === "all" && (
             <Button className="mt-4" onClick={() => setDialogOpen(true)}>
               <Plus className="size-4" />
               Add Article
@@ -254,11 +259,13 @@ export default function ArticlesPage() {
       )}
 
       {/* Add Article Dialog */}
-      <AddArticleDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onArticleAdded={handleArticleAdded}
-      />
+      {isAdmin && (
+        <AddArticleDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onArticleAdded={handleArticleAdded}
+        />
+      )}
     </div>
   );
 }

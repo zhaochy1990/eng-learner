@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getAllArticles, createArticle, getArticleById, deleteArticle, updateReadingProgress } from '../lib/db';
 import { VALID_DIFFICULTIES, VALID_CATEGORIES } from '../lib/types';
+import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/articles
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const body = req.body;
 
@@ -73,7 +74,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/articles/:id
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     await deleteArticle(Number(req.params.id));
     res.json({ success: true });

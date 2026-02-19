@@ -7,6 +7,7 @@ declare global {
   namespace Express {
     interface Request {
       userId?: string;
+      userRole?: string;
     }
   }
 }
@@ -41,8 +42,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     }) as jwt.JwtPayload;
 
     req.userId = decoded.sub;
+    req.userRole = (decoded as Record<string, unknown>).role as string | undefined;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
+}
+
+export function requireRole(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.userRole || !roles.includes(req.userRole)) {
+      res.status(403).json({ error: 'Forbidden: insufficient role' });
+      return;
+    }
+    next();
+  };
 }

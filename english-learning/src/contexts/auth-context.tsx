@@ -17,6 +17,7 @@ import {
   getMe,
   getAccessToken,
   getRefreshToken,
+  getUserRole,
   clearTokens,
   scheduleTokenRefresh,
   stopTokenRefresh,
@@ -25,6 +26,7 @@ import {
 
 interface AuthContextValue {
   user: UserProfile | null;
+  role: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
@@ -37,6 +39,7 @@ const PUBLIC_PATHS = ["/login", "/register"];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -56,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const profile = await getMe();
         setUser(profile);
+        setRole(getUserRole());
         scheduleTokenRefresh();
       } catch {
         // Token might be expired, try refresh
@@ -65,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await authRefresh();
             const profile = await getMe();
             setUser(profile);
+            setRole(getUserRole());
             scheduleTokenRefresh();
           } catch {
             clearTokens();
@@ -96,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await authLogin(email, password);
       const profile = await getMe();
       setUser(profile);
+      setRole(getUserRole());
       scheduleTokenRefresh();
       router.replace("/");
     },
@@ -107,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await authRegister(email, password, name);
       const profile = await getMe();
       setUser(profile);
+      setRole(getUserRole());
       scheduleTokenRefresh();
       router.replace("/");
     },
@@ -117,11 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     stopTokenRefresh();
     await authLogout();
     setUser(null);
+    setRole(null);
     router.replace("/login");
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, role, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
