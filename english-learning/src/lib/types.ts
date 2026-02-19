@@ -12,6 +12,7 @@ export interface Article {
   reading_time?: number;
   created_at?: string;
   updated_at?: string;
+  translation?: string | null;
   // From reading_progress join
   scroll_position?: number | null;
   completed?: number | null;

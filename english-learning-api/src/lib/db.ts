@@ -109,6 +109,14 @@ async function initializeSchema(pool: sql.ConnectionPool) {
   `);
 
   await pool.request().query(`
+    IF NOT EXISTS (
+      SELECT * FROM sys.columns
+      WHERE object_id = OBJECT_ID('articles') AND name = 'translation'
+    )
+    ALTER TABLE articles ADD translation NVARCHAR(MAX) NULL;
+  `);
+
+  await pool.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_user_word')
       CREATE INDEX idx_vocabulary_user_word ON vocabulary(user_id, word);
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_user_next_review')
@@ -217,6 +225,14 @@ export async function createArticle(article: {
     `);
 
   return result.recordset[0].id;
+}
+
+export async function updateArticleTranslation(id: number, translation: string) {
+  const p = await getPool();
+  await p.request()
+    .input('id', sql.Int, id)
+    .input('translation', sql.NVarChar(sql.MAX), translation)
+    .query('UPDATE articles SET translation = @translation WHERE id = @id');
 }
 
 export async function deleteArticle(id: number) {

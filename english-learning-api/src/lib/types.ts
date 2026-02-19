@@ -10,6 +10,7 @@ export interface Article {
   reading_time?: number;
   created_at?: string;
   updated_at?: string;
+  translation?: string | null;
   scroll_position?: number | null;
   completed?: number | null;
   current_sentence?: number | null;
