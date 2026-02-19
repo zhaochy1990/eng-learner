@@ -21,7 +21,13 @@ interface ArticleReaderProps {
   article: Article;
   currentSentenceIndex?: number;
   onSentenceChange?: (sentenceIndex: number) => void;
+  /** When provided, uses external settings instead of internal state and hides the built-in toggle */
+  settings?: ReaderSettings;
+  onSettingsChange?: (settings: ReaderSettings) => void;
 }
+
+export type { ReaderSettings, FontSize, LineSpacing };
+export { loadSettings, saveSettings };
 
 type FontSize = "small" | "medium" | "large";
 type LineSpacing = "compact" | "normal" | "relaxed";
@@ -160,6 +166,8 @@ export function ArticleReader({
   article,
   currentSentenceIndex,
   onSentenceChange,
+  settings: externalSettings,
+  onSettingsChange,
 }: ArticleReaderProps) {
   const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
   const [activeWord, setActiveWord] = useState<{
@@ -169,8 +177,19 @@ export function ArticleReader({
   } | null>(null);
 
   // L9 fix: load persisted settings
-  const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
+  const [internalSettings, setInternalSettings] = useState<ReaderSettings>(loadSettings);
   const [showSettings, setShowSettings] = useState(false);
+
+  const settings = externalSettings ?? internalSettings;
+  const setSettings = onSettingsChange
+    ? (v: ReaderSettings | ((prev: ReaderSettings) => ReaderSettings)) => {
+        const next = typeof v === 'function' ? v(settings) : v;
+        onSettingsChange(next);
+      }
+    : (v: ReaderSettings | ((prev: ReaderSettings) => ReaderSettings)) => {
+        setInternalSettings(v as Parameters<typeof setInternalSettings>[0]);
+      };
+  const isExternalSettings = !!externalSettings;
 
   const [selectionPopup, setSelectionPopup] = useState<{
     text: string;
@@ -344,70 +363,72 @@ export function ArticleReader({
 
   return (
     <div className="relative">
-      {/* Settings toggle */}
-      <div className="flex justify-end mb-3 relative" ref={settingsRef}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowSettings((v) => !v)}
-          className="gap-1.5"
-        >
-          <ALargeSmall className="h-4 w-4" />
-          Aa
-        </Button>
+      {/* Settings toggle (only when not externally controlled) */}
+      {!isExternalSettings && (
+        <div className="flex justify-end mb-3 relative" ref={settingsRef}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSettings((v) => !v)}
+            className="gap-1.5"
+          >
+            <ALargeSmall className="h-4 w-4" />
+            Aa
+          </Button>
 
-        {showSettings && (
-          <div className="absolute top-full right-0 mt-1 z-50 w-64 rounded-lg border bg-popover p-4 shadow-lg animate-in fade-in-0 zoom-in-95">
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium mb-2">Font Size</p>
-                <div className="flex gap-1">
-                  {(["small", "medium", "large"] as FontSize[]).map((size) => (
-                    <Button
-                      key={size}
-                      variant={
-                        settings.fontSize === size ? "default" : "outline"
-                      }
-                      size="sm"
-                      className="flex-1 capitalize"
-                      onClick={() =>
-                        setSettings((s) => ({ ...s, fontSize: size }))
-                      }
-                    >
-                      {size}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium mb-2">Line Spacing</p>
-                <div className="flex gap-1">
-                  {(["compact", "normal", "relaxed"] as LineSpacing[]).map(
-                    (spacing) => (
+          {showSettings && (
+            <div className="absolute top-full right-0 mt-1 z-50 w-64 rounded-lg border bg-popover p-4 shadow-lg animate-in fade-in-0 zoom-in-95">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-2">Font Size</p>
+                  <div className="flex gap-1">
+                    {(["small", "medium", "large"] as FontSize[]).map((size) => (
                       <Button
-                        key={spacing}
+                        key={size}
                         variant={
-                          settings.lineSpacing === spacing
-                            ? "default"
-                            : "outline"
+                          settings.fontSize === size ? "default" : "outline"
                         }
                         size="sm"
                         className="flex-1 capitalize"
                         onClick={() =>
-                          setSettings((s) => ({ ...s, lineSpacing: spacing }))
+                          setSettings((s) => ({ ...s, fontSize: size }))
                         }
                       >
-                        {spacing}
+                        {size}
                       </Button>
-                    )
-                  )}
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium mb-2">Line Spacing</p>
+                  <div className="flex gap-1">
+                    {(["compact", "normal", "relaxed"] as LineSpacing[]).map(
+                      (spacing) => (
+                        <Button
+                          key={spacing}
+                          variant={
+                            settings.lineSpacing === spacing
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          className="flex-1 capitalize"
+                          onClick={() =>
+                            setSettings((s) => ({ ...s, lineSpacing: spacing }))
+                          }
+                        >
+                          {spacing}
+                        </Button>
+                      )
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Article title */}
       <h1 className="text-2xl font-bold tracking-tight mb-3">
