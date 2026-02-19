@@ -25,7 +25,7 @@ import {
   Rss,
   Loader2,
 } from "lucide-react";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 interface AddArticleDialogProps {
   open: boolean;
@@ -159,7 +159,7 @@ export function AddArticleDialog({
 
     setSubmitting(true);
     try {
-      const res = await fetch(apiUrl("/api/articles"), {
+      const res = await apiFetch("/api/articles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, content, difficulty, category, source_url, summary }),
@@ -202,7 +202,7 @@ export function AddArticleDialog({
       const q = keywords ?? searchKeywords.trim();
       if (q) params.set("q", q);
       const qs = params.toString();
-      const res = await fetch(apiUrl(`/api/search${qs ? `?${qs}` : ""}`));
+      const res = await apiFetch(`/api/search${qs ? `?${qs}` : ""}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setSearchMessage(data.error || "Failed to load feeds");
@@ -228,7 +228,7 @@ export function AddArticleDialog({
     (async () => {
       setSearchLoading(true);
       try {
-        const res = await fetch(apiUrl("/api/search"));
+        const res = await apiFetch("/api/search");
         if (!res.ok) return;
         const results = await res.json();
         if (results.length > 0) setSearchResults(results);
@@ -244,7 +244,7 @@ export function AddArticleDialog({
     setExtracting(true);
     setSearchMessage("");
     try {
-      const res = await fetch(apiUrl("/api/search/extract"), {
+      const res = await apiFetch("/api/search/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),

@@ -10,7 +10,7 @@ router.get('/', async (req: Request, res: Response) => {
     const search = (req.query.search as string) || undefined;
     const sort = (req.query.sort as string) || undefined;
 
-    const vocabulary = await getVocabulary({
+    const vocabulary = await getVocabulary(req.userId!, {
       mastery_level: mastery_level !== undefined && mastery_level !== '' ? Number(mastery_level) : undefined,
       search,
       sort,
@@ -33,7 +33,7 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const result = await saveWord({
+    const result = await saveWord(req.userId!, {
       word: body.word,
       phonetic: body.phonetic,
       translation: body.translation,
@@ -70,7 +70,7 @@ router.delete('/', async (req: Request, res: Response) => {
       return;
     }
 
-    await deleteWords(body.ids);
+    await deleteWords(req.userId!, body.ids);
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/vocabulary error:', error);

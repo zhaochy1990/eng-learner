@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { Article } from "@/lib/types";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, apiFetch } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth-client";
 import {
   ArrowLeft,
   Clock,
@@ -41,7 +42,7 @@ export default function ArticleReaderPage() {
     setLoading(true);
     setError(null);
 
-    fetch(apiUrl(`/api/articles/${params.id}`))
+    apiFetch(`/api/articles/${params.id}`)
       .then((res) => {
         if (!res.ok) {
           if (res.status === 404) throw new Error("Article not found");
@@ -80,7 +81,7 @@ export default function ArticleReaderPage() {
     (scrollPos: number) => {
       if (!params.id) return;
 
-      fetch(apiUrl(`/api/articles/${params.id}`), {
+      apiFetch(`/api/articles/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -130,9 +131,10 @@ export default function ArticleReaderPage() {
           scroll_position: scrollPos,
           current_sentence: currentSentenceIndex ?? 0,
         });
+        const token = getAccessToken();
         fetch(apiUrl(`/api/articles/${params.id}`), {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
           body: data,
           keepalive: true,
         }).catch(() => {});
@@ -152,7 +154,7 @@ export default function ArticleReaderPage() {
 
       if (scrollTop + clientHeight >= scrollHeight - 100) {
         completedRef.current = true;
-        fetch(apiUrl(`/api/articles/${params.id}`), {
+        apiFetch(`/api/articles/${params.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ completed: true }),

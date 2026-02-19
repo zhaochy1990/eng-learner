@@ -26,7 +26,7 @@ import {
 import { speak } from "@/lib/speech";
 import { MASTERY_LABELS } from "@/lib/spaced-repetition";
 import type { VocabularyItem } from "@/lib/types";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
 // Constants (C4 fix: MASTERY_LABELS imported from shared module)
@@ -118,7 +118,7 @@ export default function VocabularyPage() {
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (sortBy) params.set("sort", sortBy);
 
-      const res = await fetch(apiUrl(`/api/vocabulary?${params.toString()}`));
+      const res = await apiFetch(`/api/vocabulary?${params.toString()}`);
       if (!res.ok) throw new Error(`Failed to fetch vocabulary (${res.status})`);
       const data: VocabularyItem[] = await res.json();
       setVocabulary(data);
@@ -175,7 +175,7 @@ export default function VocabularyPage() {
 
     setDeleting(true);
     try {
-      const res = await fetch(apiUrl("/api/vocabulary"), {
+      const res = await apiFetch("/api/vocabulary", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: Array.from(selectedIds) }),
@@ -203,11 +203,20 @@ export default function VocabularyPage() {
             ({vocabulary.length} word{vocabulary.length !== 1 ? "s" : ""})
           </span>
         </h1>
-        <Button variant="outline" size="sm" asChild>
-          <a href={apiUrl("/api/vocabulary/export")} target="_blank" rel="noopener noreferrer">
-            <Download className="h-4 w-4" />
-            Export CSV
-          </a>
+        <Button variant="outline" size="sm" onClick={async () => {
+          const res = await apiFetch("/api/vocabulary/export");
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "vocabulary.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        }}>
+          <Download className="h-4 w-4" />
+          Export CSV
         </Button>
       </div>
 

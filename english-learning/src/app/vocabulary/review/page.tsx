@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { speak } from "@/lib/speech";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
 // Types (C5 fix: use shared VocabularyItem where applicable)
@@ -78,7 +78,7 @@ export default function VocabularyReviewPage() {
     setRatingStats({ again: 0, hard: 0, good: 0, easy: 0 });
 
     try {
-      const res = await fetch(apiUrl(`/api/vocabulary/review?mode=${reviewMode}`));
+      const res = await apiFetch(`/api/vocabulary/review?mode=${reviewMode}`);
       if (!res.ok) throw new Error("Failed to fetch review words");
       const data: VocabularyWord[] = await res.json();
       setWords(data);
@@ -115,7 +115,7 @@ export default function VocabularyReviewPage() {
     setIsSubmitting(true);
 
     try {
-      await fetch(apiUrl("/api/vocabulary/review"), {
+      await apiFetch("/api/vocabulary/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

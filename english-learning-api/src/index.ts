@@ -10,6 +10,7 @@ import dictionaryRouter from './routes/dictionary';
 import translateRouter from './routes/translate';
 import statsRouter from './routes/stats';
 import searchRouter from './routes/search';
+import { requireAuth } from './middleware/auth';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -21,6 +22,7 @@ app.use(cors({
   maxAge: 86400,
 }));
 app.use(express.json());
+app.use('/api', requireAuth);
 
 // Mount routes — order matters: more specific paths first
 app.use('/api/vocabulary/review', reviewRouter);

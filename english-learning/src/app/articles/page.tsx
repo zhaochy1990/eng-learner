@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { AddArticleDialog } from "@/components/add-article-dialog";
 import type { Article } from "@/lib/types";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 const DIFFICULTY_OPTIONS = [
   { value: "all", label: "All" },
@@ -60,7 +60,7 @@ export default function ArticlesPage() {
 
       setLoading(true);
       try {
-        const res = await fetch(apiUrl(`/api/articles?${query.toString()}`));
+        const res = await apiFetch(`/api/articles?${query.toString()}`);
         if (res.ok) {
           const data = await res.json();
           setArticles(data);

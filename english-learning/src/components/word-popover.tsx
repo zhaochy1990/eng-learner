@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Volume2, BookmarkPlus, BookmarkCheck, X, Loader2 } from "lucide-react";
 import { speak } from "@/lib/speech";
-import { apiUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 interface DictEntry {
   word: string;
@@ -57,7 +57,7 @@ export function WordPopover({
     setLoading(true);
     setError(null);
 
-    fetch(apiUrl(`/api/dictionary?word=${encodeURIComponent(cleanWord)}`))
+    apiFetch(`/api/dictionary?word=${encodeURIComponent(cleanWord)}`)
       .then((res) => {
         if (!res.ok) {
           if (res.status === 404) throw new Error("Word not found in dictionary");
@@ -118,7 +118,7 @@ export function WordPopover({
 
     setSaving(true);
     try {
-      const res = await fetch(apiUrl("/api/vocabulary"), {
+      const res = await apiFetch("/api/vocabulary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

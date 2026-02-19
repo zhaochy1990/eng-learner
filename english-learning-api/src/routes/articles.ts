@@ -11,7 +11,7 @@ router.get('/', async (req: Request, res: Response) => {
     const category = (req.query.category as string) || undefined;
     const search = (req.query.search as string) || undefined;
 
-    const articles = await getAllArticles({ difficulty, category, search });
+    const articles = await getAllArticles(req.userId!, { difficulty, category, search });
     res.json(articles);
   } catch (error) {
     console.error('GET /api/articles error:', error);
@@ -58,7 +58,7 @@ router.post('/', async (req: Request, res: Response) => {
 // GET /api/articles/:id
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const article = await getArticleById(Number(req.params.id));
+    const article = await getArticleById(req.userId!, Number(req.params.id));
 
     if (!article) {
       res.status(404).json({ error: 'Article not found' });
@@ -87,7 +87,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    await updateReadingProgress(Number(req.params.id), {
+    await updateReadingProgress(req.userId!, Number(req.params.id), {
       scroll_position: body.scroll_position,
       current_sentence: body.current_sentence,
       completed: body.completed,
@@ -103,7 +103,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 router.post('/:id', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    await updateReadingProgress(Number(req.params.id), {
+    await updateReadingProgress(req.userId!, Number(req.params.id), {
       scroll_position: body.scroll_position,
       current_sentence: body.current_sentence,
       completed: body.completed,
