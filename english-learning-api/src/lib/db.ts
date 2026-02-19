@@ -261,7 +261,7 @@ export async function updateReadingProgress(userId: string, articleId: number, d
       WHEN MATCHED THEN
         UPDATE SET
           scroll_position = CASE WHEN @scroll_position IS NOT NULL THEN @scroll_position ELSE target.scroll_position END,
-          current_sentence = CASE WHEN @current_sentence IS NOT NULL THEN @current_sentence ELSE target.current_sentence END,
+          current_sentence = CASE WHEN @current_sentence > target.current_sentence THEN @current_sentence ELSE target.current_sentence END,
           completed = CASE WHEN @completed IS NOT NULL THEN @completed ELSE target.completed END,
           last_read_at = GETUTCDATE()
       WHEN NOT MATCHED THEN

@@ -126,10 +126,13 @@ router.post('/:id/translate', async (req: Request, res: Response) => {
     const systemPrompt = `You are a professional English-to-Chinese translator. Translate the following English article into natural, fluent Chinese.
 
 Rules:
-- Translate paragraph by paragraph. The output must have the EXACT same number of paragraphs as the input.
-- Separate paragraphs with double newlines (\\n\\n), matching the input structure.
-- Do NOT add any extra paragraphs, titles, notes, or explanations.
+- The first line of input is the article title. Translate it as the first line of output.
+- Then translate the body paragraph by paragraph. The output must have the EXACT same number of paragraphs as the input (title line + body paragraphs).
+- Separate the title and each body paragraph with double newlines (\\n\\n), matching the input structure.
+- Do NOT add any extra paragraphs, notes, or explanations.
 - Keep the translation accurate and natural for Chinese readers.`;
+
+    const inputText = article.title + '\n\n' + article.content;
 
     const openaiUrl = `${endpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=2024-08-01-preview`;
     const llmRes = await fetch(openaiUrl, {
@@ -141,7 +144,7 @@ Rules:
       body: JSON.stringify({
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: article.content },
+          { role: 'user', content: inputText },
         ],
         temperature: 0.3,
         max_tokens: 8000,

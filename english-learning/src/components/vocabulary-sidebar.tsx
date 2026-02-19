@@ -32,7 +32,7 @@ interface VocabularySidebarProps {
 
 export function VocabularySidebar({ words }: VocabularySidebarProps) {
   return (
-    <aside className="sticky top-6 hidden lg:block w-72 shrink-0">
+    <aside className="sticky top-6 hidden lg:block w-80 min-w-72 max-w-96 shrink-0">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-base">
@@ -70,7 +70,7 @@ export function VocabularySidebar({ words }: VocabularySidebarProps) {
                       /{item.phonetic}/
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {item.translation}
                   </p>
                 </li>

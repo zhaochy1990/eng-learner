@@ -191,9 +191,17 @@ export function ArticleReader({
   const readerRef = useRef<HTMLDivElement>(null);
 
   const paragraphs = useMemo(() => tokenise(article.content), [article.content]);
-  const translationParagraphs = useMemo(
+  const allTranslationParagraphs = useMemo(
     () => (translation ? splitParagraphs(translation) : []),
     [translation]
+  );
+  const titleTranslation = useMemo(
+    () => (allTranslationParagraphs.length > 0 ? allTranslationParagraphs[0] : null),
+    [allTranslationParagraphs]
+  );
+  const translationParagraphs = useMemo(
+    () => allTranslationParagraphs.slice(1),
+    [allTranslationParagraphs]
   );
   const titleWords = useMemo(() => tokeniseWords(article.title), [article.title]);
 
@@ -336,6 +344,11 @@ export function ArticleReader({
           );
         })}
       </h1>
+      {showTranslation && titleTranslation && (
+        <p className="text-base text-muted-foreground mb-3">
+          {titleTranslation}
+        </p>
+      )}
 
       {/* Article content */}
       <div
