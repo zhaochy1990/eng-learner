@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArticleReader } from "@/components/article-reader";
+import { ArticleReader, type ReaderSettings, loadSettings, saveSettings } from "@/components/article-reader";
 import { TTSPlayer } from "@/components/tts-player";
 import { useTTS } from "@/hooks/use-tts";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   BookOpen,
   Loader2,
   AudioLines,
+  ALargeSmall,
 } from "lucide-react";
 
 export default function ArticleReaderPage() {
@@ -28,12 +29,33 @@ export default function ArticleReaderPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number | undefined>(undefined);
   const [showTTS, setShowTTS] = useState(false);
+  const [readerSettings, setReaderSettings] = useState<ReaderSettings>(loadSettings);
+  const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   // Scroll-progress saving timer
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedScrollRef = useRef<number>(0);
   // H3 fix: guard to prevent unbounded completion PATCH requests
   const completedRef = useRef(false);
+
+  // --- Reader settings ---
+  const handleSettingsChange = useCallback((s: ReaderSettings) => {
+    setReaderSettings(s);
+    saveSettings(s);
+  }, []);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    }
+    if (showSettings) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [showSettings]);
 
   // --- Fetch article data ---
   useEffect(() => {
@@ -235,6 +257,56 @@ export default function ArticleReaderPage() {
         </Button>
 
         <div className="flex items-center gap-2">
+          <div className="relative" ref={settingsRef}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings((v) => !v)}
+              className="gap-1.5"
+            >
+              <ALargeSmall className="h-4 w-4" />
+              Aa
+            </Button>
+
+            {showSettings && (
+              <div className="absolute top-full right-0 mt-1 z-50 w-64 rounded-lg border bg-popover p-4 shadow-lg animate-in fade-in-0 zoom-in-95">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium mb-2">Font Size</p>
+                    <div className="flex gap-1">
+                      {(["small", "medium", "large"] as const).map((size) => (
+                        <Button
+                          key={size}
+                          variant={readerSettings.fontSize === size ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1 capitalize"
+                          onClick={() => handleSettingsChange({ ...readerSettings, fontSize: size })}
+                        >
+                          {size}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-2">Line Spacing</p>
+                    <div className="flex gap-1">
+                      {(["compact", "normal", "relaxed"] as const).map((spacing) => (
+                        <Button
+                          key={spacing}
+                          variant={readerSettings.lineSpacing === spacing ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1 capitalize"
+                          onClick={() => handleSettingsChange({ ...readerSettings, lineSpacing: spacing })}
+                        >
+                          {spacing}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <Button
             variant={showTTS ? "default" : "outline"}
             size="sm"
@@ -282,6 +354,8 @@ export default function ArticleReaderPage() {
         article={article}
         currentSentenceIndex={currentSentenceIndex}
         onSentenceChange={handleSentenceChange}
+        settings={readerSettings}
+        onSettingsChange={handleSettingsChange}
       />
 
       {/* TTS Player */}
