@@ -200,7 +200,9 @@ export default function ArticlesPage() {
                     <CardHeader className="p-0 gap-1.5">
                       <div className="flex items-start justify-between gap-3">
                         <h3 className="font-semibold text-base leading-snug line-clamp-1">
-                          {article.title}
+                          <Link href={`/articles/${article.id}`} className="hover:underline">
+                            {article.title}
+                          </Link>
                         </h3>
                         {article.difficulty && (
                         <Badge

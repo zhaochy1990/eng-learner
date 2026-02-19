@@ -59,6 +59,71 @@ npm install
 # Configure auth: JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH, JWT_ISSUER
 ```
 
+### Local dev with prod auth service
+
+The local frontend and API can connect to the prod auth service instead of running auth locally.
+
+**1. Frontend (`english-learning/.env.local`)**
+
+Get the prod auth URL and client ID:
+
+```bash
+az containerapp show --name auth-backend --resource-group rg-auth-prod \
+  --query "properties.configuration.ingress.fqdn" -o tsv
+```
+
+Add to `.env.local`:
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_AUTH_URL=https://<auth-backend-fqdn>
+NEXT_PUBLIC_AUTH_CLIENT_ID=app_040b1d0551104759b69dfe8c
+```
+
+**2. API (`english-learning-api/.env`)**
+
+Get the prod JWT public key:
+
+```bash
+az containerapp secret show --name ca-english-learning-api \
+  --resource-group rg-english-learning-prod --secret-name jwt-public-key \
+  --query "value" -o tsv
+```
+
+Set `JWT_PUBLIC_KEY` in `.env` (use `\n` for newlines in the PEM):
+
+```
+JWT_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\nMIIBIjAN...\n-----END PUBLIC KEY-----"
+```
+
+Note: The `\n` escape sequences are converted to real newlines at runtime by `auth.ts`.
+
+**3. CORS**
+
+The prod auth service must allow `http://localhost:3000` in `CORS_ALLOWED_ORIGINS`. To add it:
+
+```bash
+# Get current value
+az containerapp secret show --name auth-backend --resource-group rg-auth-prod \
+  --secret-name cors-allowed-origins --query "value" -o tsv
+
+# Append http://localhost:3000 to the comma-separated list
+az containerapp secret set --name auth-backend --resource-group rg-auth-prod \
+  --secrets "cors-allowed-origins=<existing-origins>,http://localhost:3000"
+
+# Restart to apply
+az containerapp revision restart --name auth-backend --resource-group rg-auth-prod \
+  --revision $(az containerapp revision list --name auth-backend \
+  --resource-group rg-auth-prod --query "[0].name" -o tsv)
+```
+
+**4. Start both servers**
+
+```bash
+cd english-learning && npm run dev      # Frontend on http://localhost:3000
+cd english-learning-api && npm run dev  # API on http://localhost:3001
+```
+
 ## Commit Convention
 
 This repo uses [Conventional Commits](https://www.conventionalcommits.org/) enforced by commitlint + husky.
