@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { WordPopover } from "@/components/word-popover";
+import { WordPopover, type SavedWordInfo } from "@/components/word-popover";
 import { X, Languages, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { splitParagraphs, splitSentences } from "@/lib/text-utils";
@@ -24,6 +24,8 @@ interface ArticleReaderProps {
   settings: ReaderSettings;
   translation?: string | null;
   showTranslation?: boolean;
+  savedWords: Set<string>;
+  onWordSaved: (word: string, info: SavedWordInfo) => void;
 }
 
 export type FontSize = "small" | "medium" | "large";
@@ -166,8 +168,9 @@ export function ArticleReader({
   settings,
   translation,
   showTranslation,
+  savedWords,
+  onWordSaved,
 }: ArticleReaderProps) {
-  const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
   const [activeWord, setActiveWord] = useState<{
     word: string;
     position: { x: number; y: number };
@@ -193,22 +196,6 @@ export function ArticleReader({
     [translation]
   );
   const titleWords = useMemo(() => tokeniseWords(article.title), [article.title]);
-
-  // --- fetch saved words on mount ---
-  useEffect(() => {
-    apiFetch("/api/vocabulary")
-      .then((res) => res.json())
-      .then((data: { word: string }[]) => {
-        const words = new Set(
-          (Array.isArray(data) ? data : []).map((w) => w.word.toLowerCase())
-        );
-        setSavedWords(words);
-      })
-      .catch((err) => {
-        // C2 fix: log instead of silent swallow
-        console.error("Failed to fetch saved words:", err);
-      });
-  }, []);
 
   // --- handle text selection for translate ---
   useEffect(() => {
@@ -305,14 +292,6 @@ export function ArticleReader({
       setSelectionPopup(null);
     }
   }, [selectionPopup]);
-
-  const handleWordSaved = useCallback((word: string) => {
-    setSavedWords((prev) => {
-      const next = new Set(prev);
-      next.add(word.toLowerCase());
-      return next;
-    });
-  }, []);
 
   const handleSentenceClick = useCallback(
     (sentenceIndex: number) => {
@@ -430,7 +409,7 @@ export function ArticleReader({
           word={activeWord.word}
           position={activeWord.position}
           onClose={() => setActiveWord(null)}
-          onSave={handleWordSaved}
+          onSave={onWordSaved}
           articleId={article.id}
           contextSentence={activeWord.sentence}
         />

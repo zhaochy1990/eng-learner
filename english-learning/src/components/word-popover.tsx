@@ -19,11 +19,19 @@ interface DictEntry {
   frq: number | null;
 }
 
+export interface SavedWordInfo {
+  word: string;
+  phonetic: string | null;
+  translation: string;
+  pos: string | null;
+  definition: string | null;
+}
+
 interface WordPopoverProps {
   word: string;
   position: { x: number; y: number };
   onClose: () => void;
-  onSave: (word: string) => void;
+  onSave: (word: string, info: SavedWordInfo) => void;
   articleId: number;
   contextSentence: string;
 }
@@ -134,7 +142,13 @@ export function WordPopover({
 
       if (res.ok) {
         setSaved(true);
-        onSave(dictEntry.word);
+        onSave(dictEntry.word, {
+          word: dictEntry.word,
+          phonetic: dictEntry.phonetic,
+          translation: dictEntry.translation || "No translation available",
+          pos: dictEntry.pos,
+          definition: dictEntry.definition,
+        });
       }
     } catch (err) {
       // C2 fix: log instead of silent swallow
