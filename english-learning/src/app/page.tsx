@@ -82,7 +82,6 @@ export default function DashboardPage() {
   }
 
   const lastRead = stats?.lastReadArticle;
-  const readingProgress = lastReadProgress;
 
   return (
     <div className="space-y-8">
@@ -157,9 +156,9 @@ export default function DashboardPage() {
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Progress</span>
-                    <span>{readingProgress}%</span>
+                    <span>{lastReadProgress}%</span>
                   </div>
-                  <Progress value={readingProgress} className="h-2" />
+                  <Progress value={lastReadProgress} className="h-2" />
                 </div>
               </div>
             ) : (

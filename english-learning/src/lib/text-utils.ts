@@ -1,6 +1,8 @@
 // Shared text splitting utilities (C6 fix)
 // Used by both article-reader.tsx and use-tts.ts — must stay in sync.
 
+import type { Article } from '@/lib/types';
+
 /**
  * Regex to split a paragraph into sentences.
  * Matches text ending with . ! or ? followed by whitespace or end-of-string,
@@ -28,8 +30,6 @@ export function splitSentences(paragraph: string): string[] {
     .filter((s) => s.length > 0);
   return matches && matches.length > 0 ? matches : [paragraph];
 }
-
-import type { Article } from '@/lib/types';
 
 /**
  * Calculate reading progress for an article based on current_sentence vs total sentences.

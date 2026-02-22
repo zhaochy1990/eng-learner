@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { splitParagraphs, splitSentences, SENTENCE_SPLIT_REGEX } from '../src/lib/text-utils';
+import { splitParagraphs, splitSentences, SENTENCE_SPLIT_REGEX, getReadingProgress } from '../src/lib/text-utils';
+import type { Article } from '../src/lib/types';
 
 describe('splitParagraphs', () => {
   it('splits multiple paragraphs separated by \\n\\n', () => {
@@ -79,5 +80,38 @@ describe('splitSentences', () => {
 describe('SENTENCE_SPLIT_REGEX', () => {
   it('is a RegExp', () => {
     expect(SENTENCE_SPLIT_REGEX).toBeInstanceOf(RegExp);
+  });
+});
+
+describe('getReadingProgress', () => {
+  const baseArticle: Article = { id: 1, title: 'Test', content: 'First sentence. Second sentence.\n\nThird sentence.' };
+
+  it('returns null when article has never been opened', () => {
+    expect(getReadingProgress(baseArticle)).toBeNull();
+  });
+
+  it('returns 100 when article is completed', () => {
+    expect(getReadingProgress({ ...baseArticle, completed: 1 })).toBe(100);
+  });
+
+  it('returns percentage for in-progress article', () => {
+    // 3 total sentences, current_sentence = 1 → 33%
+    const result = getReadingProgress({ ...baseArticle, current_sentence: 1, completed: 0 });
+    expect(result).toBe(33);
+  });
+
+  it('caps progress at 99 for nearly finished article', () => {
+    // 3 total sentences, current_sentence = 3 → would be 100 but capped at 99
+    const result = getReadingProgress({ ...baseArticle, current_sentence: 3, completed: 0 });
+    expect(result).toBe(99);
+  });
+
+  it('returns 0 when current_sentence is 0', () => {
+    expect(getReadingProgress({ ...baseArticle, current_sentence: 0, completed: 0 })).toBe(0);
+  });
+
+  it('returns 0 for empty content with progress fields set', () => {
+    const article: Article = { id: 2, title: 'Empty', content: '', current_sentence: 1, completed: 0 };
+    expect(getReadingProgress(article)).toBe(0);
   });
 });
