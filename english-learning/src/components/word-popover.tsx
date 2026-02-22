@@ -293,12 +293,17 @@ export function WordPopover({
 
           {/* Body */}
           <div className="p-3 space-y-2 max-h-60 overflow-y-auto">
-            {/* Part of speech */}
-            {formatPos(dictEntry.pos).length > 0 && (
+            {/* Part of speech & tags */}
+            {(formatPos(dictEntry.pos).length > 0 || dictEntry.tag) && (
               <div className="flex flex-wrap gap-1">
                 {formatPos(dictEntry.pos).map((p) => (
                   <Badge key={p} variant="secondary" className="text-xs">
                     {p}
+                  </Badge>
+                ))}
+                {dictEntry.tag?.split(/\s+/).filter(Boolean).map((t) => (
+                  <Badge key={t} variant="outline" className="text-xs">
+                    {t}
                   </Badge>
                 ))}
               </div>
