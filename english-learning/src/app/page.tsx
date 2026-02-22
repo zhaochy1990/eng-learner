@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import type { Article } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
+import { splitParagraphs, splitSentences } from "@/lib/text-utils";
 
 interface Stats {
   totalWords: number;
@@ -76,9 +77,14 @@ export default function DashboardPage() {
   }
 
   const lastRead = stats?.lastReadArticle;
-  const readingProgress = lastRead
-    ? Math.round((lastRead.scroll_position || 0) * 100)
-    : 0;
+  const readingProgress = (() => {
+    if (!lastRead) return 0;
+    const totalSentences = splitParagraphs(lastRead.content).reduce(
+      (sum, p) => sum + splitSentences(p).length, 0
+    );
+    if (totalSentences === 0) return 0;
+    return Math.min(100, Math.round(((lastRead.current_sentence || 0) / totalSentences) * 100));
+  })();
 
   return (
     <div className="space-y-8">
