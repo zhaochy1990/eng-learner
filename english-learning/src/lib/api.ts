@@ -17,12 +17,18 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 
   let res = await fetch(url, { ...init, headers });
 
-  if (res.status === 401 && token) {
-    try {
-      const newToken = await authRefresh();
-      headers.set('Authorization', `Bearer ${newToken}`);
-      res = await fetch(url, { ...init, headers });
-    } catch {
+  if (res.status === 401) {
+    if (token) {
+      try {
+        const newToken = await authRefresh();
+        headers.set('Authorization', `Bearer ${newToken}`);
+        res = await fetch(url, { ...init, headers });
+      } catch {
+        // refresh failed
+      }
+    }
+
+    if (res.status === 401) {
       clearTokens();
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
