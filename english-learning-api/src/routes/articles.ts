@@ -134,6 +134,7 @@ Rules:
 - Then translate the body paragraph by paragraph. The output must have the EXACT same number of paragraphs as the input (title line + body paragraphs).
 - Separate the title and each body paragraph with double newlines (\\n\\n), matching the input structure.
 - Do NOT add any extra paragraphs, notes, or explanations.
+- Translate ONLY what is in the source text. Do NOT add, invent, or infer any content that is not explicitly present in the original. Every sentence in the translation must have a direct corresponding sentence in the source.
 - Keep the translation accurate and natural for Chinese readers.`;
 
     const inputText = article.title + '\n\n' + article.content;
