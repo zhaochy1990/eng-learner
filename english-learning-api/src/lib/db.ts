@@ -227,6 +227,19 @@ export async function createArticle(article: {
   return result.recordset[0].id;
 }
 
+export async function updateArticle(id: number, fields: { title?: string; summary?: string; difficulty?: string; category?: string }): Promise<boolean> {
+  const p = await getPool();
+  const sets: string[] = [];
+  const req = p.request().input('id', sql.Int, id);
+  if (fields.title !== undefined) { req.input('title', sql.NVarChar, fields.title); sets.push('title = @title'); }
+  if (fields.summary !== undefined) { req.input('summary', sql.NVarChar(sql.MAX), fields.summary); sets.push('summary = @summary'); }
+  if (fields.difficulty !== undefined) { req.input('difficulty', sql.NVarChar, fields.difficulty); sets.push('difficulty = @difficulty'); }
+  if (fields.category !== undefined) { req.input('category', sql.NVarChar, fields.category); sets.push('category = @category'); }
+  if (sets.length === 0) return false;
+  const result = await req.query(`UPDATE articles SET ${sets.join(', ')} WHERE id = @id`);
+  return result.rowsAffected[0] > 0;
+}
+
 export async function updateArticleTranslation(id: number, translation: string) {
   const p = await getPool();
   await p.request()
