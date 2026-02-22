@@ -32,6 +32,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
       clearTokens();
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
+        return new Promise<Response>(() => {});
       }
     }
   }
