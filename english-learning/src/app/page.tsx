@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import type { Article } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
-import { splitParagraphs, splitSentences } from "@/lib/text-utils";
+import { getReadingProgress } from "@/lib/text-utils";
 
 interface Stats {
   totalWords: number;
@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentArticles, setRecentArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastReadProgress, setLastReadProgress] = useState<number>(0);
 
   useEffect(() => {
     async function fetchData() {
@@ -59,6 +60,10 @@ export default function DashboardPage() {
         const articlesData = await articlesRes.json();
         setStats(statsData);
         setRecentArticles(articlesData.slice(0, 8));
+        if (statsData.lastReadArticle) {
+          const match = articlesData.find((a: Article) => a.id === statsData.lastReadArticle.id);
+          setLastReadProgress(getReadingProgress(match || statsData.lastReadArticle) ?? 0);
+        }
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
       } finally {
@@ -77,14 +82,7 @@ export default function DashboardPage() {
   }
 
   const lastRead = stats?.lastReadArticle;
-  const readingProgress = (() => {
-    if (!lastRead) return 0;
-    const totalSentences = splitParagraphs(lastRead.content).reduce(
-      (sum, p) => sum + splitSentences(p).length, 0
-    );
-    if (totalSentences === 0) return 0;
-    return Math.min(100, Math.round(((lastRead.current_sentence || 0) / totalSentences) * 100));
-  })();
+  const readingProgress = lastReadProgress;
 
   return (
     <div className="space-y-8">

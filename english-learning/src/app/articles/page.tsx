@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { AddArticleDialog } from "@/components/add-article-dialog";
 import type { Article } from "@/lib/types";
-import { splitParagraphs, splitSentences } from "@/lib/text-utils";
+import { getReadingProgress } from "@/lib/text-utils";
 import { filterVocabularyByArticle, type VocabularyItem } from "@/components/vocabulary-sidebar";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
@@ -116,20 +116,6 @@ export default function ArticlesPage() {
 
   function handleArticleAdded() {
     fetchArticles();
-  }
-
-  function getReadingProgress(article: Article): number | null {
-    if (article.current_sentence == null && article.completed == null) {
-      return null;
-    }
-    if (article.completed === 1) return 100;
-    if (article.current_sentence != null && article.current_sentence > 0) {
-      const totalSentences = splitParagraphs(article.content)
-        .reduce((sum, para) => sum + splitSentences(para).length, 0);
-      if (totalSentences === 0) return 0;
-      return Math.min(Math.round((article.current_sentence / totalSentences) * 100), 99);
-    }
-    return 0;
   }
 
   return (
