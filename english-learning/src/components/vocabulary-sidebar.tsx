@@ -56,7 +56,7 @@ export function VocabularySidebar({ words }: VocabularySidebarProps) {
               </p>
             </div>
           ) : (
-            <ul className="max-h-[calc(100vh-12rem)] overflow-y-auto space-y-3 pr-1">
+            <ul className="max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-hide space-y-3">
               {words.map((item) => (
                 <li key={item.word} className="text-sm">
                   <div className="flex items-center gap-1">
