@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getAllArticles, createArticle, getArticleById, deleteArticle, updateReadingProgress, updateArticleTranslation } from '../lib/db';
+import { getAllArticles, createArticle, getArticleById, deleteArticle, updateArticle, updateReadingProgress, updateArticleTranslation } from '../lib/db';
 import { VALID_DIFFICULTIES, VALID_CATEGORIES } from '../lib/types';
 import { requireRole } from '../middleware/auth';
 
@@ -70,6 +70,38 @@ router.get('/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('GET /api/articles/:id error:', error);
     res.status(500).json({ error: 'Failed to fetch article' });
+  }
+});
+
+// PUT /api/articles/:id — update article metadata
+router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const body = req.body;
+
+    if (body.difficulty !== undefined && !(VALID_DIFFICULTIES as readonly string[]).includes(body.difficulty)) {
+      res.status(400).json({ error: `Invalid difficulty. Must be one of: ${VALID_DIFFICULTIES.join(', ')}` });
+      return;
+    }
+
+    if (body.category !== undefined && !(VALID_CATEGORIES as readonly string[]).includes(body.category)) {
+      res.status(400).json({ error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}` });
+      return;
+    }
+
+    const updated = await updateArticle(Number(req.params.id), {
+      title: body.title,
+      summary: body.summary,
+      difficulty: body.difficulty,
+      category: body.category,
+    });
+    if (!updated) {
+      res.status(404).json({ error: 'Article not found' });
+      return;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('PUT /api/articles/:id error:', error);
+    res.status(500).json({ error: 'Failed to update article' });
   }
 });
 
