@@ -206,7 +206,10 @@ export function scheduleTokenRefresh() {
         await authRefresh();
         scheduleTokenRefresh();
       } catch {
-        // Will redirect on next 401
+        clearTokens();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       }
     }, delay);
   } catch {
