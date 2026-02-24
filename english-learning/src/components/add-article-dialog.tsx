@@ -46,6 +46,7 @@ export function AddArticleDialog({
   const [pasteContent, setPasteContent] = useState("");
   const [pasteDifficulty, setPasteDifficulty] = useState("intermediate");
   const [pasteCategory, setPasteCategory] = useState("general");
+  const [pasteArticleType, setPasteArticleType] = useState("article");
 
   // Import URL tab state
   const [importUrl, setImportUrl] = useState("");
@@ -53,6 +54,7 @@ export function AddArticleDialog({
   const [importContent, setImportContent] = useState("");
   const [importDifficulty, setImportDifficulty] = useState("intermediate");
   const [importCategory, setImportCategory] = useState("general");
+  const [importArticleType, setImportArticleType] = useState("article");
   const [importFetched, setImportFetched] = useState(false);
   const [importMessage, setImportMessage] = useState("");
 
@@ -77,6 +79,7 @@ export function AddArticleDialog({
   const [searchContent, setSearchContent] = useState("");
   const [searchDifficulty, setSearchDifficulty] = useState("intermediate");
   const [searchCategory, setSearchCategory] = useState("general");
+  const [searchArticleType, setSearchArticleType] = useState("article");
   const [searchSourceUrl, setSearchSourceUrl] = useState("");
   const [searchSummary, setSearchSummary] = useState("");
 
@@ -85,11 +88,13 @@ export function AddArticleDialog({
     setPasteContent("");
     setPasteDifficulty("intermediate");
     setPasteCategory("general");
+    setPasteArticleType("article");
     setImportUrl("");
     setImportTitle("");
     setImportContent("");
     setImportDifficulty("intermediate");
     setImportCategory("general");
+    setImportArticleType("article");
     setImportFetched(false);
     setImportMessage("");
     setAiTopic("");
@@ -108,6 +113,7 @@ export function AddArticleDialog({
     setSearchContent("");
     setSearchDifficulty("intermediate");
     setSearchCategory("general");
+    setSearchArticleType("article");
     setSearchSourceUrl("");
     setSearchSummary("");
     setActiveTab("paste");
@@ -125,6 +131,7 @@ export function AddArticleDialog({
     let content = "";
     let difficulty = "intermediate";
     let category = "general";
+    let article_type = "article";
     let source_url: string | undefined;
 
     if (activeTab === "paste") {
@@ -132,17 +139,20 @@ export function AddArticleDialog({
       content = pasteContent.trim();
       difficulty = pasteDifficulty;
       category = pasteCategory;
+      article_type = pasteArticleType;
     } else if (activeTab === "import") {
       title = importTitle.trim();
       content = importContent.trim();
       difficulty = importDifficulty;
       category = importCategory;
+      article_type = importArticleType;
       source_url = importUrl.trim() || undefined;
     } else if (activeTab === "search") {
       title = searchTitle.trim();
       content = searchContent.trim();
       difficulty = searchDifficulty;
       category = searchCategory;
+      article_type = searchArticleType;
       source_url = searchSourceUrl || undefined;
     } else {
       return;
@@ -162,7 +172,7 @@ export function AddArticleDialog({
       const res = await apiFetch("/api/articles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, difficulty, category, source_url, summary }),
+        body: JSON.stringify({ title, content, difficulty, category, article_type, source_url, summary }),
       });
 
       if (res.ok) {
@@ -322,7 +332,20 @@ export function AddArticleDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Type</label>
+                <Select value={pasteArticleType} onValueChange={setPasteArticleType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="article">Article</SelectItem>
+                    <SelectItem value="novel">Novel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Difficulty</label>
                 <Select value={pasteDifficulty} onValueChange={setPasteDifficulty}>
@@ -353,6 +376,11 @@ export function AddArticleDialog({
                 </Select>
               </div>
             </div>
+            {pasteArticleType === "novel" && (
+              <p className="text-xs text-muted-foreground">
+                Use <code className="bg-muted px-1 rounded">## Chapter Title</code> to mark chapter boundaries.
+              </p>
+            )}
           </TabsContent>
 
           {/* Tab 2: Import URL */}
@@ -402,7 +430,23 @@ export function AddArticleDialog({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Type</label>
+                    <Select
+                      value={importArticleType}
+                      onValueChange={setImportArticleType}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="article">Article</SelectItem>
+                        <SelectItem value="novel">Novel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Difficulty</label>
                     <Select
@@ -439,6 +483,11 @@ export function AddArticleDialog({
                     </Select>
                   </div>
                 </div>
+                {importArticleType === "novel" && (
+                  <p className="text-xs text-muted-foreground">
+                    Use <code className="bg-muted px-1 rounded">## Chapter Title</code> to mark chapter boundaries.
+                  </p>
+                )}
               </>
             )}
           </TabsContent>
@@ -629,7 +678,23 @@ export function AddArticleDialog({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Type</label>
+                    <Select
+                      value={searchArticleType}
+                      onValueChange={setSearchArticleType}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="article">Article</SelectItem>
+                        <SelectItem value="novel">Novel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Difficulty</label>
                     <Select
@@ -666,6 +731,11 @@ export function AddArticleDialog({
                     </Select>
                   </div>
                 </div>
+                {searchArticleType === "novel" && (
+                  <p className="text-xs text-muted-foreground">
+                    Use <code className="bg-muted px-1 rounded">## Chapter Title</code> to mark chapter boundaries.
+                  </p>
+                )}
               </>
             )}
           </TabsContent>

@@ -149,6 +149,14 @@ async function initializeSchema(pool: sql.ConnectionPool) {
   `);
 
   await pool.request().query(`
+    IF NOT EXISTS (
+      SELECT * FROM sys.columns
+      WHERE object_id = OBJECT_ID('articles') AND name = 'article_type'
+    )
+    ALTER TABLE articles ADD article_type NVARCHAR(20) NOT NULL DEFAULT 'article';
+  `);
+
+  await pool.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_user_word')
       CREATE INDEX idx_vocabulary_user_word ON vocabulary(user_id, word);
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_user_next_review')
@@ -157,6 +165,8 @@ async function initializeSchema(pool: sql.ConnectionPool) {
       CREATE INDEX idx_vocabulary_user_mastery ON vocabulary(user_id, mastery_level);
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_reading_progress_user_article')
       CREATE INDEX idx_reading_progress_user_article ON reading_progress(user_id, article_id);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_reading_progress_user_last_read')
+      CREATE INDEX idx_reading_progress_user_last_read ON reading_progress(user_id, last_read_at DESC) INCLUDE (article_id, completed);
   `);
 }
 
@@ -191,6 +201,7 @@ export async function getAllArticles(userId: string, filters?: {
   difficulty?: string;
   category?: string;
   search?: string;
+  article_type?: string;
 }) {
   const p = await getPool();
   const request = p.request();
@@ -208,6 +219,10 @@ export async function getAllArticles(userId: string, filters?: {
   if (filters?.search) {
     query += ' AND (a.title LIKE @search OR a.content LIKE @search)';
     request.input('search', sql.NVarChar, `%${filters.search}%`);
+  }
+  if (filters?.article_type && filters.article_type !== 'all') {
+    query += ' AND a.article_type = @article_type';
+    request.input('article_type', sql.NVarChar, filters.article_type);
   }
 
   query += ' ORDER BY a.created_at DESC';
@@ -236,6 +251,7 @@ export async function createArticle(article: {
   difficulty?: string;
   category?: string;
   source_url?: string;
+  article_type?: string;
 }) {
   const p = await getPool();
   const wordCount = article.content.split(/\s+/).filter(Boolean).length;
@@ -250,16 +266,17 @@ export async function createArticle(article: {
     .input('source_url', sql.NVarChar, article.source_url || null)
     .input('word_count', sql.Int, wordCount)
     .input('reading_time', sql.Int, readingTime)
+    .input('article_type', sql.NVarChar, article.article_type || 'article')
     .query(`
-      INSERT INTO articles (title, content, summary, difficulty, category, source_url, word_count, reading_time)
-      VALUES (@title, @content, @summary, @difficulty, @category, @source_url, @word_count, @reading_time);
+      INSERT INTO articles (title, content, summary, difficulty, category, source_url, word_count, reading_time, article_type)
+      VALUES (@title, @content, @summary, @difficulty, @category, @source_url, @word_count, @reading_time, @article_type);
       SELECT SCOPE_IDENTITY() AS id;
     `);
 
   return result.recordset[0].id;
 }
 
-export async function updateArticle(id: number, fields: { title?: string; summary?: string; difficulty?: string; category?: string }): Promise<boolean> {
+export async function updateArticle(id: number, fields: { title?: string; summary?: string; difficulty?: string; category?: string; article_type?: string }): Promise<boolean> {
   const p = await getPool();
   const sets: string[] = [];
   const req = p.request().input('id', sql.Int, id);
@@ -267,6 +284,7 @@ export async function updateArticle(id: number, fields: { title?: string; summar
   if (fields.summary !== undefined) { req.input('summary', sql.NVarChar(sql.MAX), fields.summary); sets.push('summary = @summary'); }
   if (fields.difficulty !== undefined) { req.input('difficulty', sql.NVarChar, fields.difficulty); sets.push('difficulty = @difficulty'); }
   if (fields.category !== undefined) { req.input('category', sql.NVarChar, fields.category); sets.push('category = @category'); }
+  if (fields.article_type !== undefined) { req.input('article_type', sql.NVarChar, fields.article_type); sets.push('article_type = @article_type'); }
   if (sets.length === 0) return false;
   const result = await req.query(`UPDATE articles SET ${sets.join(', ')} WHERE id = @id`);
   return result.rowsAffected[0] > 0;
@@ -368,33 +386,28 @@ export async function saveWord(userId: string, word: {
   context_article_id?: number;
 }) {
   const p = await getPool();
-  try {
-    const result = await p.request()
-      .input('user_id', sql.NVarChar, userId)
-      .input('word', sql.NVarChar, word.word.toLowerCase())
-      .input('phonetic', sql.NVarChar, word.phonetic || null)
-      .input('translation', sql.NVarChar(sql.MAX), word.translation)
-      .input('pos', sql.NVarChar, word.pos || null)
-      .input('definition', sql.NVarChar(sql.MAX), word.definition || null)
-      .input('context_sentence', sql.NVarChar(sql.MAX), word.context_sentence || null)
-      .input('context_article_id', sql.Int, word.context_article_id || null)
-      .query(`
-        INSERT INTO vocabulary (user_id, word, phonetic, translation, pos, definition, context_sentence, context_article_id)
-        VALUES (@user_id, @word, @phonetic, @translation, @pos, @definition, @context_sentence, @context_article_id);
-        SELECT SCOPE_IDENTITY() AS id;
-      `);
-    return { id: result.recordset[0].id, exists: false };
-  } catch (err: unknown) {
-    const sqlErr = err as { number?: number };
-    if (sqlErr.number === 2627 || sqlErr.number === 2601) {
-      const existing = await p.request()
-        .input('word', sql.NVarChar, word.word.toLowerCase())
-        .input('user_id', sql.NVarChar, userId)
-        .query('SELECT id FROM vocabulary WHERE word = @word AND user_id = @user_id');
-      return { id: existing.recordset[0].id, exists: true };
-    }
-    throw err;
-  }
+  const result = await p.request()
+    .input('user_id', sql.NVarChar, userId)
+    .input('word', sql.NVarChar, word.word.toLowerCase())
+    .input('phonetic', sql.NVarChar, word.phonetic || null)
+    .input('translation', sql.NVarChar(sql.MAX), word.translation)
+    .input('pos', sql.NVarChar, word.pos || null)
+    .input('definition', sql.NVarChar(sql.MAX), word.definition || null)
+    .input('context_sentence', sql.NVarChar(sql.MAX), word.context_sentence || null)
+    .input('context_article_id', sql.Int, word.context_article_id || null)
+    .query(`
+      MERGE vocabulary WITH (HOLDLOCK) AS target
+      USING (SELECT @user_id AS user_id, @word AS word) AS source
+      ON target.user_id = source.user_id AND target.word = source.word
+      WHEN MATCHED THEN
+        UPDATE SET id = target.id  -- no-op required by MERGE syntax to enable OUTPUT $action
+      WHEN NOT MATCHED THEN
+        INSERT (user_id, word, phonetic, translation, pos, definition, context_sentence, context_article_id)
+        VALUES (@user_id, @word, @phonetic, @translation, @pos, @definition, @context_sentence, @context_article_id)
+      OUTPUT $action AS action, inserted.id AS id;
+    `);
+  const row = result.recordset[0];
+  return { id: row.id, exists: row.action === 'UPDATE' };
 }
 
 export async function deleteWords(userId: string, ids: number[]) {

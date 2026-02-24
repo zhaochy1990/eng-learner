@@ -1,9 +1,25 @@
 import { Router, Request, Response } from 'express';
 import { getAllArticles, createArticle, getArticleById, deleteArticle, updateArticle, updateReadingProgress, updateArticleTranslation } from '../lib/db';
-import { VALID_DIFFICULTIES, VALID_CATEGORIES } from '../lib/types';
+import { VALID_DIFFICULTIES, VALID_CATEGORIES, VALID_ARTICLE_TYPES } from '../lib/types';
 import { requireRole } from '../middleware/auth';
 
 const router = Router();
+
+function parseId(raw: string): number | null {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// Validate :id param for all sub-routes
+router.param('id', (req, res, next, value) => {
+  const id = parseId(value);
+  if (id === null) {
+    res.status(400).json({ error: 'Invalid article ID' });
+    return;
+  }
+  req.articleId = id;
+  next();
+});
 
 // GET /api/articles
 router.get('/', async (req: Request, res: Response) => {
@@ -11,8 +27,9 @@ router.get('/', async (req: Request, res: Response) => {
     const difficulty = (req.query.difficulty as string) || undefined;
     const category = (req.query.category as string) || undefined;
     const search = (req.query.search as string) || undefined;
+    const article_type = (req.query.article_type as string) || undefined;
 
-    const articles = await getAllArticles(req.userId!, { difficulty, category, search });
+    const articles = await getAllArticles(req.userId!, { difficulty, category, search, article_type });
     res.json(articles);
   } catch (error) {
     console.error('GET /api/articles error:', error);
@@ -40,6 +57,11 @@ router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
       return;
     }
 
+    if (body.article_type && !(VALID_ARTICLE_TYPES as readonly string[]).includes(body.article_type)) {
+      res.status(400).json({ error: `Invalid article_type. Must be one of: ${VALID_ARTICLE_TYPES.join(', ')}` });
+      return;
+    }
+
     const id = await createArticle({
       title: body.title,
       content: body.content,
@@ -47,6 +69,7 @@ router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
       difficulty: body.difficulty,
       category: body.category,
       source_url: body.source_url,
+      article_type: body.article_type,
     });
 
     res.status(201).json({ id });
@@ -59,7 +82,7 @@ router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
 // GET /api/articles/:id
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const article = await getArticleById(req.userId!, Number(req.params.id));
+    const article = await getArticleById(req.userId!, req.articleId!);
 
     if (!article) {
       res.status(404).json({ error: 'Article not found' });
@@ -88,11 +111,17 @@ router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => 
       return;
     }
 
-    const updated = await updateArticle(Number(req.params.id), {
+    if (body.article_type !== undefined && !(VALID_ARTICLE_TYPES as readonly string[]).includes(body.article_type)) {
+      res.status(400).json({ error: `Invalid article_type. Must be one of: ${VALID_ARTICLE_TYPES.join(', ')}` });
+      return;
+    }
+
+    const updated = await updateArticle(req.articleId!, {
       title: body.title,
       summary: body.summary,
       difficulty: body.difficulty,
       category: body.category,
+      article_type: body.article_type,
     });
     if (!updated) {
       res.status(404).json({ error: 'Article not found' });
@@ -108,7 +137,7 @@ router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => 
 // DELETE /api/articles/:id
 router.delete('/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await deleteArticle(Number(req.params.id));
+    await deleteArticle(req.articleId!);
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/articles/:id error:', error);
@@ -120,7 +149,7 @@ router.delete('/:id', requireRole('admin'), async (req: Request, res: Response) 
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    await updateReadingProgress(req.userId!, Number(req.params.id), {
+    await updateReadingProgress(req.userId!, req.articleId!, {
       scroll_position: body.scroll_position,
       current_sentence: body.current_sentence,
       completed: body.completed,
@@ -135,7 +164,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 // POST /api/articles/:id/translate — generate Chinese translation
 router.post('/:id/translate', async (req: Request, res: Response) => {
   try {
-    const article = await getArticleById(req.userId!, Number(req.params.id));
+    const article = await getArticleById(req.userId!, req.articleId!);
     if (!article) {
       res.status(404).json({ error: 'Article not found' });
       return;
@@ -202,7 +231,7 @@ Rules:
       return;
     }
 
-    await updateArticleTranslation(Number(req.params.id), translation);
+    await updateArticleTranslation(req.articleId!, translation);
     res.json({ translation });
   } catch (error) {
     console.error('POST /api/articles/:id/translate error:', error);
@@ -214,7 +243,7 @@ Rules:
 router.post('/:id', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    await updateReadingProgress(req.userId!, Number(req.params.id), {
+    await updateReadingProgress(req.userId!, req.articleId!, {
       scroll_position: body.scroll_position,
       current_sentence: body.current_sentence,
       completed: body.completed,

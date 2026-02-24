@@ -65,6 +65,11 @@ router.delete('/', async (req: Request, res: Response) => {
       return;
     }
 
+    if (body.ids.length > 200) {
+      res.status(400).json({ error: 'Cannot delete more than 200 words at once' });
+      return;
+    }
+
     if (body.ids.length === 0) {
       res.json({ success: true });
       return;

@@ -13,11 +13,30 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      is_release: ${{ steps.version.outputs.is_release }}
     steps:
       - uses: actions/checkout@v4
-      - name: Read version from package.json
+        with:
+          fetch-depth: 0
+      - name: Determine version
         id: version
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+          else
+            DESCRIBE=$(git describe --tags --always --match 'v*')
+            # e.g. v0.2.2-3-gabc1234 → 3.abc1234
+            if [[ "$DESCRIBE" =~ -([0-9]+)-g([0-9a-f]+)$ ]]; then
+              SUFFIX="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+              echo "version=${BASE_VERSION}-dev.${SUFFIX}" >> "$GITHUB_OUTPUT"
+            else
+              SHORT_SHA=$(git rev-parse --short HEAD)
+              echo "version=${BASE_VERSION}-dev.0.${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            fi
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+          fi
 
   frontend:
     needs: [version]
@@ -40,8 +59,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-frontend
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},enable=${{ needs.version.outputs.is_release }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ needs.version.outputs.is_release }}
+            type=raw,value=latest,enable=${{ needs.version.outputs.is_release }}
             type=sha
 
       - uses: docker/build-push-action@v6
@@ -76,8 +96,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/eng-learner-api
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},enable=${{ needs.version.outputs.is_release }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ needs.version.outputs.is_release }}
+            type=raw,value=latest,enable=${{ needs.version.outputs.is_release }}
             type=sha
 
       - uses: docker/build-push-action@v6

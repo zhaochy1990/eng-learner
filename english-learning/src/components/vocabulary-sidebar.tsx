@@ -33,11 +33,11 @@ export function filterVocabularyByArticle(
 
 interface VocabularySidebarProps {
   words: VocabularyItem[];
+  bare?: boolean;
 }
 
-export function VocabularySidebar({ words }: VocabularySidebarProps) {
-  return (
-    <aside className="sticky top-6 hidden lg:block w-80 min-w-72 max-w-96 shrink-0">
+export function VocabularySidebar({ words, bare }: VocabularySidebarProps) {
+  const card = (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-base">
@@ -84,6 +84,13 @@ export function VocabularySidebar({ words }: VocabularySidebarProps) {
           )}
         </CardContent>
       </Card>
+  );
+
+  if (bare) return card;
+
+  return (
+    <aside className="sticky top-6 hidden lg:block w-80 min-w-72 max-w-96 shrink-0">
+      {card}
     </aside>
   );
 }

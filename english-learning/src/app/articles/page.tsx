@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { AddArticleDialog } from "@/components/add-article-dialog";
 import { DIFFICULTY_COLOR, type Article } from "@/lib/types";
-import { splitParagraphs, splitSentences } from "@/lib/text-utils";
+import { getReadingProgress } from "@/lib/text-utils";
 import { filterVocabularyByArticle, type VocabularyItem } from "@/components/vocabulary-sidebar";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
@@ -28,6 +28,13 @@ const CATEGORY_OPTIONS = [
   { value: "tech", label: "Tech" },
   { value: "daily", label: "Daily" },
   { value: "news", label: "News" },
+  { value: "novel", label: "Novel" },
+];
+
+const ARTICLE_TYPE_OPTIONS = [
+  { value: "all", label: "All Types" },
+  { value: "article", label: "Article" },
+  { value: "novel", label: "Novel" },
 ];
 
 function truncate(text: string, maxLength: number): string {
@@ -42,6 +49,7 @@ export default function ArticlesPage() {
   const [loading, setLoading] = useState(true);
   const [difficulty, setDifficulty] = useState("all");
   const [category, setCategory] = useState("all");
+  const [articleType, setArticleType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([]);
@@ -63,15 +71,17 @@ export default function ArticlesPage() {
   }, [articles, vocabularyItems]);
 
   const fetchArticles = useCallback(
-    async (params?: { difficulty?: string; category?: string; search?: string }) => {
+    async (params?: { difficulty?: string; category?: string; search?: string; article_type?: string }) => {
       const d = params?.difficulty ?? difficulty;
       const c = params?.category ?? category;
       const s = params?.search ?? searchQuery;
+      const t = params?.article_type ?? articleType;
 
       const query = new URLSearchParams();
       if (d && d !== "all") query.set("difficulty", d);
       if (c && c !== "all") query.set("category", c);
       if (s.trim()) query.set("search", s.trim());
+      if (t && t !== "all") query.set("article_type", t);
 
       setLoading(true);
       try {
@@ -84,13 +94,13 @@ export default function ArticlesPage() {
         setLoading(false);
       }
     },
-    [difficulty, category, searchQuery]
+    [difficulty, category, searchQuery, articleType]
   );
 
   useEffect(() => {
     fetchArticles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficulty, category]);
+  }, [difficulty, category, articleType]);
 
   function handleSearchChange(value: string) {
     setSearchQuery(value);
@@ -108,22 +118,12 @@ export default function ArticlesPage() {
     setCategory(value);
   }
 
-  function handleArticleAdded() {
-    fetchArticles();
+  function handleArticleTypeChange(value: string) {
+    setArticleType(value);
   }
 
-  function getReadingProgress(article: Article): number | null {
-    if (article.current_sentence == null && article.completed == null) {
-      return null;
-    }
-    if (article.completed === 1) return 100;
-    if (article.current_sentence != null && article.current_sentence > 0) {
-      const totalSentences = splitParagraphs(article.content)
-        .reduce((sum, para) => sum + splitSentences(para).length, 0);
-      if (totalSentences === 0) return 0;
-      return Math.min(Math.round((article.current_sentence / totalSentences) * 100), 99);
-    }
-    return 0;
+  function handleArticleAdded() {
+    fetchArticles();
   }
 
   return (
@@ -179,6 +179,20 @@ export default function ArticlesPage() {
             </Button>
           ))}
         </div>
+
+        {/* Article type filters */}
+        <div className="flex flex-wrap gap-2">
+          {ARTICLE_TYPE_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              variant={articleType === option.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleArticleTypeChange(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Article List */}
@@ -193,11 +207,11 @@ export default function ArticlesPage() {
             No articles found
           </h2>
           <p className="mt-1 text-sm text-muted-foreground/80">
-            {searchQuery || difficulty !== "all" || category !== "all"
+            {searchQuery || difficulty !== "all" || category !== "all" || articleType !== "all"
               ? "Try adjusting your filters or search query."
               : "Add your first article to get started."}
           </p>
-          {isAdmin && !searchQuery && difficulty === "all" && category === "all" && (
+          {isAdmin && !searchQuery && difficulty === "all" && category === "all" && articleType === "all" && (
             <Button className="mt-4" onClick={() => setDialogOpen(true)}>
               <Plus className="size-4" />
               Add Article
@@ -220,15 +234,22 @@ export default function ArticlesPage() {
                             {article.title}
                           </Link>
                         </h3>
-                        {article.difficulty && (
-                        <Badge
-                          variant="secondary"
-                          className={`shrink-0 ${DIFFICULTY_COLOR[article.difficulty] || ""}`}
-                        >
-                          {article.difficulty.charAt(0).toUpperCase() +
-                            article.difficulty.slice(1)}
-                        </Badge>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {article.article_type === "novel" && (
+                            <Badge variant="outline" className="text-xs">
+                              Novel
+                            </Badge>
+                          )}
+                          {article.difficulty && (
+                            <Badge
+                              variant="secondary"
+                              className={DIFFICULTY_COLOR[article.difficulty] || ""}
+                            >
+                              {article.difficulty.charAt(0).toUpperCase() +
+                                article.difficulty.slice(1)}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-0 mt-2">
