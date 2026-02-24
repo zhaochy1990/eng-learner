@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getAllArticles, createArticle, getArticleById, deleteArticle, updateArticle, updateReadingProgress, updateArticleTranslation } from '../lib/db';
-import { VALID_DIFFICULTIES, VALID_CATEGORIES } from '../lib/types';
+import { VALID_DIFFICULTIES, VALID_CATEGORIES, VALID_ARTICLE_TYPES } from '../lib/types';
 import { requireRole } from '../middleware/auth';
 
 const router = Router();
@@ -11,8 +11,9 @@ router.get('/', async (req: Request, res: Response) => {
     const difficulty = (req.query.difficulty as string) || undefined;
     const category = (req.query.category as string) || undefined;
     const search = (req.query.search as string) || undefined;
+    const article_type = (req.query.article_type as string) || undefined;
 
-    const articles = await getAllArticles(req.userId!, { difficulty, category, search });
+    const articles = await getAllArticles(req.userId!, { difficulty, category, search, article_type });
     res.json(articles);
   } catch (error) {
     console.error('GET /api/articles error:', error);
@@ -40,6 +41,11 @@ router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
       return;
     }
 
+    if (body.article_type && !(VALID_ARTICLE_TYPES as readonly string[]).includes(body.article_type)) {
+      res.status(400).json({ error: `Invalid article_type. Must be one of: ${VALID_ARTICLE_TYPES.join(', ')}` });
+      return;
+    }
+
     const id = await createArticle({
       title: body.title,
       content: body.content,
@@ -47,6 +53,7 @@ router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
       difficulty: body.difficulty,
       category: body.category,
       source_url: body.source_url,
+      article_type: body.article_type,
     });
 
     res.status(201).json({ id });
@@ -88,11 +95,17 @@ router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => 
       return;
     }
 
+    if (body.article_type !== undefined && !(VALID_ARTICLE_TYPES as readonly string[]).includes(body.article_type)) {
+      res.status(400).json({ error: `Invalid article_type. Must be one of: ${VALID_ARTICLE_TYPES.join(', ')}` });
+      return;
+    }
+
     const updated = await updateArticle(Number(req.params.id), {
       title: body.title,
       summary: body.summary,
       difficulty: body.difficulty,
       category: body.category,
+      article_type: body.article_type,
     });
     if (!updated) {
       res.status(404).json({ error: 'Article not found' });

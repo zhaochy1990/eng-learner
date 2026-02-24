@@ -117,6 +117,14 @@ async function initializeSchema(pool: sql.ConnectionPool) {
   `);
 
   await pool.request().query(`
+    IF NOT EXISTS (
+      SELECT * FROM sys.columns
+      WHERE object_id = OBJECT_ID('articles') AND name = 'article_type'
+    )
+    ALTER TABLE articles ADD article_type NVARCHAR(20) NOT NULL DEFAULT 'article';
+  `);
+
+  await pool.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_user_word')
       CREATE INDEX idx_vocabulary_user_word ON vocabulary(user_id, word);
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_user_next_review')
@@ -159,6 +167,7 @@ export async function getAllArticles(userId: string, filters?: {
   difficulty?: string;
   category?: string;
   search?: string;
+  article_type?: string;
 }) {
   const p = await getPool();
   const request = p.request();
@@ -176,6 +185,10 @@ export async function getAllArticles(userId: string, filters?: {
   if (filters?.search) {
     query += ' AND (a.title LIKE @search OR a.content LIKE @search)';
     request.input('search', sql.NVarChar, `%${filters.search}%`);
+  }
+  if (filters?.article_type && filters.article_type !== 'all') {
+    query += ' AND a.article_type = @article_type';
+    request.input('article_type', sql.NVarChar, filters.article_type);
   }
 
   query += ' ORDER BY a.created_at DESC';
@@ -204,6 +217,7 @@ export async function createArticle(article: {
   difficulty?: string;
   category?: string;
   source_url?: string;
+  article_type?: string;
 }) {
   const p = await getPool();
   const wordCount = article.content.split(/\s+/).filter(Boolean).length;
@@ -218,16 +232,17 @@ export async function createArticle(article: {
     .input('source_url', sql.NVarChar, article.source_url || null)
     .input('word_count', sql.Int, wordCount)
     .input('reading_time', sql.Int, readingTime)
+    .input('article_type', sql.NVarChar, article.article_type || 'article')
     .query(`
-      INSERT INTO articles (title, content, summary, difficulty, category, source_url, word_count, reading_time)
-      VALUES (@title, @content, @summary, @difficulty, @category, @source_url, @word_count, @reading_time);
+      INSERT INTO articles (title, content, summary, difficulty, category, source_url, word_count, reading_time, article_type)
+      VALUES (@title, @content, @summary, @difficulty, @category, @source_url, @word_count, @reading_time, @article_type);
       SELECT SCOPE_IDENTITY() AS id;
     `);
 
   return result.recordset[0].id;
 }
 
-export async function updateArticle(id: number, fields: { title?: string; summary?: string; difficulty?: string; category?: string }): Promise<boolean> {
+export async function updateArticle(id: number, fields: { title?: string; summary?: string; difficulty?: string; category?: string; article_type?: string }): Promise<boolean> {
   const p = await getPool();
   const sets: string[] = [];
   const req = p.request().input('id', sql.Int, id);
@@ -235,6 +250,7 @@ export async function updateArticle(id: number, fields: { title?: string; summar
   if (fields.summary !== undefined) { req.input('summary', sql.NVarChar(sql.MAX), fields.summary); sets.push('summary = @summary'); }
   if (fields.difficulty !== undefined) { req.input('difficulty', sql.NVarChar, fields.difficulty); sets.push('difficulty = @difficulty'); }
   if (fields.category !== undefined) { req.input('category', sql.NVarChar, fields.category); sets.push('category = @category'); }
+  if (fields.article_type !== undefined) { req.input('article_type', sql.NVarChar, fields.article_type); sets.push('article_type = @article_type'); }
   if (sets.length === 0) return false;
   const result = await req.query(`UPDATE articles SET ${sets.join(', ')} WHERE id = @id`);
   return result.rowsAffected[0] > 0;

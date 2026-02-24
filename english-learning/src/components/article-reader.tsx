@@ -359,12 +359,49 @@ export function ArticleReader({
           lineSpacingClasses[settings.lineSpacing]
         )}
       >
-        {paragraphs.map((paragraph) => (
+        {paragraphs.map((paragraph) => {
+          const isChapterHeading = article.article_type === "novel" && paragraph.raw.trimStart().startsWith("## ");
+          const chapterWords = isChapterHeading
+            ? tokeniseWords(paragraph.raw.trimStart().slice(3))
+            : null;
+
+          return (
           <div
             key={paragraph.index}
             data-paragraph-index={paragraph.index}
             className="mb-6"
+            id={isChapterHeading ? `chapter-${paragraph.index}` : undefined}
           >
+            {isChapterHeading && chapterWords ? (
+              <h2 className="text-xl font-bold mt-8 mb-4">
+                {chapterWords.map((word, wordIdx) => {
+                  const isSaved = word.clean && isWordSaved(word.clean);
+                  const isClickable = /[a-zA-Z]/.test(word.clean);
+                  return (
+                    <span key={wordIdx}>
+                      {isClickable ? (
+                        <span
+                          className={cn(
+                            "cursor-pointer rounded-sm transition-colors hover:bg-primary/10",
+                            isSaved &&
+                              "underline decoration-primary/40 decoration-2 underline-offset-4"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWordClick(e, word.text, paragraph.raw.trimStart().slice(3));
+                          }}
+                        >
+                          {word.text}
+                        </span>
+                      ) : (
+                        <span>{word.text}</span>
+                      )}
+                      {wordIdx < chapterWords.length - 1 && " "}
+                    </span>
+                  );
+                })}
+              </h2>
+            ) : (
             <p>
               {paragraph.sentences.map((sentence) => (
                 <span
@@ -407,13 +444,15 @@ export function ArticleReader({
                 </span>
               ))}
             </p>
+            )}
             {showTranslation && translationParagraphs[paragraph.index] && (
               <p className="mt-2 text-sm text-muted-foreground border-l-2 border-primary/20 pl-3">
                 {translationParagraphs[paragraph.index]}
               </p>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Word popover */}
