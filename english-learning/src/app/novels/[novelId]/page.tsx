@@ -28,15 +28,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { Novel, NovelChapter } from "@/lib/types";
+import { DIFFICULTY_COLOR, type Novel, type NovelChapter } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
-
-const difficultyColor: Record<string, string> = {
-  beginner: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  intermediate: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  advanced: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-};
 
 function getChapterStatus(chapter: NovelChapter): "completed" | "in-progress" | "not-started" {
   if (chapter.completed === 1) return "completed";
@@ -177,7 +171,7 @@ export default function NovelDetailPage() {
             {novel.difficulty && (
               <Badge
                 variant="secondary"
-                className={difficultyColor[novel.difficulty] || ""}
+                className={DIFFICULTY_COLOR[novel.difficulty] || ""}
               >
                 {novel.difficulty.charAt(0).toUpperCase() + novel.difficulty.slice(1)}
               </Badge>

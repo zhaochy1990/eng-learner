@@ -24,7 +24,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import type { Novel } from "@/lib/types";
+import { DIFFICULTY_COLOR, type Novel } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -34,12 +34,6 @@ const DIFFICULTY_OPTIONS = [
   { value: "intermediate", label: "Intermediate" },
   { value: "advanced", label: "Advanced" },
 ];
-
-const difficultyColor: Record<string, string> = {
-  beginner: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  intermediate: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  advanced: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-};
 
 export default function NovelsPage() {
   const { role } = useAuth();
@@ -183,7 +177,7 @@ export default function NovelsPage() {
                         {novel.difficulty && (
                           <Badge
                             variant="secondary"
-                            className={`shrink-0 ${difficultyColor[novel.difficulty] || ""}`}
+                            className={`shrink-0 ${DIFFICULTY_COLOR[novel.difficulty] || ""}`}
                           >
                             {novel.difficulty.charAt(0).toUpperCase() +
                               novel.difficulty.slice(1)}

@@ -576,11 +576,12 @@ export async function updateNovel(id: number, fields: {
   return result.rowsAffected[0] > 0;
 }
 
-export async function deleteNovel(id: number) {
+export async function deleteNovel(id: number): Promise<boolean> {
   const p = await getPool();
-  return p.request()
+  const result = await p.request()
     .input('id', sql.Int, id)
     .query('DELETE FROM novels WHERE id = @id');
+  return result.rowsAffected[0] > 0;
 }
 
 export async function createChapter(novelId: number, chapter: {
@@ -595,7 +596,7 @@ export async function createChapter(novelId: number, chapter: {
   const result = await p.request()
     .input('title', sql.NVarChar, chapter.title)
     .input('content', sql.NVarChar(sql.MAX), chapter.content)
-    .input('summary', sql.NVarChar(sql.MAX), chapter.content.substring(0, 200) + '...')
+    .input('summary', sql.NVarChar(sql.MAX), chapter.content.length > 200 ? chapter.content.substring(0, 200) + '...' : chapter.content)
     .input('novel_id', sql.Int, novelId)
     .input('chapter_number', sql.Int, chapter.chapter_number)
     .input('word_count', sql.Int, wordCount)

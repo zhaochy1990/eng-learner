@@ -5,6 +5,12 @@ import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
+function parseId(raw: string | string[]): number | null {
+  const s = Array.isArray(raw) ? raw[0] : raw;
+  const n = Number(s);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 // GET /api/novels
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -49,7 +55,10 @@ router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
 // GET /api/novels/:id
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const novel = await getNovelById(req.userId!, Number(req.params.id));
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: 'Invalid novel ID' }); return; }
+
+    const novel = await getNovelById(req.userId!, id);
 
     if (!novel) {
       res.status(404).json({ error: 'Novel not found' });
@@ -66,6 +75,9 @@ router.get('/:id', async (req: Request, res: Response) => {
 // PUT /api/novels/:id
 router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: 'Invalid novel ID' }); return; }
+
     const body = req.body;
 
     if (body.difficulty !== undefined && !(VALID_DIFFICULTIES as readonly string[]).includes(body.difficulty)) {
@@ -73,7 +85,7 @@ router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => 
       return;
     }
 
-    const updated = await updateNovel(Number(req.params.id), {
+    const updated = await updateNovel(id, {
       title: body.title,
       author: body.author,
       cover_image_url: body.cover_image_url,
@@ -94,7 +106,14 @@ router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => 
 // DELETE /api/novels/:id
 router.delete('/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await deleteNovel(Number(req.params.id));
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: 'Invalid novel ID' }); return; }
+
+    const deleted = await deleteNovel(id);
+    if (!deleted) {
+      res.status(404).json({ error: 'Novel not found' });
+      return;
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/novels/:id error:', error);
@@ -112,7 +131,10 @@ router.post('/:id/chapters', requireRole('admin'), async (req: Request, res: Res
       return;
     }
 
-    const novel = await getNovelById(req.userId!, Number(req.params.id));
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: 'Invalid novel ID' }); return; }
+
+    const novel = await getNovelById(req.userId!, id);
     if (!novel) {
       res.status(404).json({ error: 'Novel not found' });
       return;
@@ -121,13 +143,13 @@ router.post('/:id/chapters', requireRole('admin'), async (req: Request, res: Res
     const chapters = (novel.chapters ?? []) as Array<{ chapter_number: number }>;
     const chapterNumber = body.chapter_number ?? (chapters.length + 1);
 
-    const id = await createChapter(Number(req.params.id), {
+    const chapterId = await createChapter(id, {
       title: body.title,
       content: body.content,
       chapter_number: chapterNumber,
     });
 
-    res.status(201).json({ id, chapter_number: chapterNumber });
+    res.status(201).json({ id: chapterId, chapter_number: chapterNumber });
   } catch (error) {
     console.error('POST /api/novels/:id/chapters error:', error);
     res.status(500).json({ error: 'Failed to create chapter' });

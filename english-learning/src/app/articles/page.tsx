@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { AddArticleDialog } from "@/components/add-article-dialog";
-import type { Article } from "@/lib/types";
+import { DIFFICULTY_COLOR, type Article } from "@/lib/types";
 import { splitParagraphs, splitSentences } from "@/lib/text-utils";
 import { filterVocabularyByArticle, type VocabularyItem } from "@/components/vocabulary-sidebar";
 import { apiFetch } from "@/lib/api";
@@ -29,12 +29,6 @@ const CATEGORY_OPTIONS = [
   { value: "daily", label: "Daily" },
   { value: "news", label: "News" },
 ];
-
-const difficultyColor: Record<string, string> = {
-  beginner: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  intermediate: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  advanced: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-};
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
@@ -229,7 +223,7 @@ export default function ArticlesPage() {
                         {article.difficulty && (
                         <Badge
                           variant="secondary"
-                          className={`shrink-0 ${difficultyColor[article.difficulty] || ""}`}
+                          className={`shrink-0 ${DIFFICULTY_COLOR[article.difficulty] || ""}`}
                         >
                           {article.difficulty.charAt(0).toUpperCase() +
                             article.difficulty.slice(1)}

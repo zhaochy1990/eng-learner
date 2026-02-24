@@ -71,3 +71,9 @@ export type Difficulty = typeof VALID_DIFFICULTIES[number];
 
 export const VALID_CATEGORIES = ['business', 'tech', 'daily', 'news', 'general'] as const;
 export type Category = typeof VALID_CATEGORIES[number];
+
+export const DIFFICULTY_COLOR: Record<string, string> = {
+  beginner: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  intermediate: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  advanced: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
