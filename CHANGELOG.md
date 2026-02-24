@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2](https://github.com/zhaochy1990/eng-learner/compare/v0.2.1...v0.2.2) (2026-02-24)
+
+
+### Features
+
+* add novel article type with chapter navigation ([399a375](https://github.com/zhaochy1990/eng-learner/commit/399a37552bec494f07910c6336541d132ef0f00b))
+* **api:** add PUT endpoint for updating article metadata ([#24](https://github.com/zhaochy1990/eng-learner/issues/24)) ([9b68e32](https://github.com/zhaochy1990/eng-learner/commit/9b68e32a7c231bef9a6d058a0c0a36c816ee0f9f))
+* **frontend:** show exam vocabulary tags in dictionary popover ([#22](https://github.com/zhaochy1990/eng-learner/issues/22)) ([4bc036b](https://github.com/zhaochy1990/eng-learner/commit/4bc036b59b1cc10f11a28a18b9a4207b14937ba2))
+
+
+### Bug Fixes
+
+* **api:** enforce faithful translation without added content ([#23](https://github.com/zhaochy1990/eng-learner/issues/23)) ([acbc147](https://github.com/zhaochy1990/eng-learner/commit/acbc14745961fd84af9a99f819c03bfe9fbc904b))
+* **frontend:** auto-redirect to login on token invalidation ([#19](https://github.com/zhaochy1990/eng-learner/issues/19)) ([93b9335](https://github.com/zhaochy1990/eng-learner/commit/93b9335262320d4c1fa2786327a90d87364026b7))
+* **frontend:** hide scrollbar in vocabulary sidebar ([#20](https://github.com/zhaochy1990/eng-learner/issues/20)) ([47cdbb2](https://github.com/zhaochy1990/eng-learner/commit/47cdbb2b716851516b72f9848f4e3413e5be3c8c))
+* **frontend:** use articles data for dashboard reading progress ([#25](https://github.com/zhaochy1990/eng-learner/issues/25)) ([9f4de15](https://github.com/zhaochy1990/eng-learner/commit/9f4de15a98b35dd90d37fdf45610e4d8bc2d1071))
+* **frontend:** use sentence count for reading progress on dashboard ([#21](https://github.com/zhaochy1990/eng-learner/issues/21)) ([bfa4251](https://github.com/zhaochy1990/eng-learner/commit/bfa4251cffdd21767eac5c0d301e016f5146b0e0))
+
+
+### Refactoring
+
+* **frontend:** remove redundant articleType prop from ArticleReader ([39c8aa0](https://github.com/zhaochy1990/eng-learner/commit/39c8aa034f846b69633b6005f725aa0c09a8ed0a))
+
 ## [0.2.1](https://github.com/zhaochy1990/eng-learner/compare/v0.2.0...v0.2.1) (2026-02-19)
 
 
