@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Library, GraduationCap, LayoutDashboard, LogOut, User } from "lucide-react";
+import { BookOpen, BookText, Library, GraduationCap, LayoutDashboard, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/articles", label: "Articles", icon: Library },
+  { href: "/novels", label: "Novels", icon: BookText },
   { href: "/vocabulary", label: "Vocabulary", icon: BookOpen },
   { href: "/vocabulary/review", label: "Review", icon: GraduationCap },
 ];

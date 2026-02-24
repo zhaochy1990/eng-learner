@@ -116,6 +116,38 @@ async function initializeSchema(pool: sql.ConnectionPool) {
     ALTER TABLE articles ADD translation NVARCHAR(MAX) NULL;
   `);
 
+  // --- Novels feature ---
+  await pool.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'novels')
+    CREATE TABLE novels (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      title NVARCHAR(500) NOT NULL,
+      author NVARCHAR(200),
+      cover_image_url NVARCHAR(2000),
+      description NVARCHAR(MAX),
+      difficulty NVARCHAR(20) NOT NULL DEFAULT 'intermediate',
+      total_chapters INT NOT NULL DEFAULT 0,
+      created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+    );
+  `);
+
+  await pool.request().query(`
+    IF NOT EXISTS (
+      SELECT * FROM sys.columns
+      WHERE object_id = OBJECT_ID('articles') AND name = 'novel_id'
+    )
+    BEGIN
+      ALTER TABLE articles ADD novel_id INT NULL;
+      ALTER TABLE articles ADD chapter_number INT NULL;
+      ALTER TABLE articles ADD CONSTRAINT FK_articles_novel FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE;
+    END;
+  `);
+
+  await pool.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_articles_novel_id')
+      CREATE INDEX idx_articles_novel_id ON articles(novel_id, chapter_number);
+  `);
+
   await pool.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_vocabulary_user_word')
       CREATE INDEX idx_vocabulary_user_word ON vocabulary(user_id, word);
@@ -163,7 +195,7 @@ export async function getAllArticles(userId: string, filters?: {
   const p = await getPool();
   const request = p.request();
   request.input('userId', sql.NVarChar, userId);
-  let query = 'SELECT a.*, rp.scroll_position, rp.completed, rp.current_sentence FROM articles a LEFT JOIN reading_progress rp ON a.id = rp.article_id AND rp.user_id = @userId WHERE 1=1';
+  let query = 'SELECT a.*, rp.scroll_position, rp.completed, rp.current_sentence FROM articles a LEFT JOIN reading_progress rp ON a.id = rp.article_id AND rp.user_id = @userId WHERE a.novel_id IS NULL';
 
   if (filters?.difficulty && filters.difficulty !== 'all') {
     query += ' AND a.difficulty = @difficulty';
@@ -291,7 +323,7 @@ export async function getLastReadArticle(userId: string) {
       SELECT TOP 1 a.*, rp.scroll_position, rp.completed, rp.current_sentence
       FROM articles a
       JOIN reading_progress rp ON a.id = rp.article_id
-      WHERE rp.user_id = @userId AND rp.completed = 0
+      WHERE rp.user_id = @userId AND rp.completed = 0 AND a.novel_id IS NULL
       ORDER BY rp.last_read_at DESC
     `);
   return result.recordset.length > 0 ? mapRow(result.recordset[0]) : undefined;
@@ -443,5 +475,142 @@ export async function getStats(userId: string) {
       (SELECT COUNT(*) FROM articles) AS totalArticles
   `);
   return result.recordset[0];
+}
+
+// --- Novel CRUD ---
+
+export async function getAllNovels(userId: string) {
+  const p = await getPool();
+  const result = await p.request()
+    .input('userId', sql.NVarChar, userId)
+    .query(`
+      SELECT n.*,
+        COUNT(a.id) AS chapter_count,
+        COALESCE(SUM(a.word_count), 0) AS total_word_count,
+        COUNT(CASE WHEN rp.completed = 1 THEN 1 END) AS completed_chapters,
+        MAX(rp.last_read_at) AS last_read_at
+      FROM novels n
+      LEFT JOIN articles a ON a.novel_id = n.id
+      LEFT JOIN reading_progress rp ON rp.article_id = a.id AND rp.user_id = @userId
+      GROUP BY n.id, n.title, n.author, n.cover_image_url, n.description, n.difficulty, n.total_chapters, n.created_at
+      ORDER BY n.created_at DESC
+    `);
+  return result.recordset.map(mapRow);
+}
+
+export async function getNovelById(userId: string, id: number) {
+  const p = await getPool();
+  const novelResult = await p.request()
+    .input('id', sql.Int, id)
+    .input('userId', sql.NVarChar, userId)
+    .query(`
+      SELECT n.*,
+        COUNT(a.id) AS chapter_count,
+        COALESCE(SUM(a.word_count), 0) AS total_word_count,
+        COUNT(CASE WHEN rp.completed = 1 THEN 1 END) AS completed_chapters
+      FROM novels n
+      LEFT JOIN articles a ON a.novel_id = n.id
+      LEFT JOIN reading_progress rp ON rp.article_id = a.id AND rp.user_id = @userId
+      WHERE n.id = @id
+      GROUP BY n.id, n.title, n.author, n.cover_image_url, n.description, n.difficulty, n.total_chapters, n.created_at
+    `);
+  if (novelResult.recordset.length === 0) return undefined;
+
+  const chaptersResult = await p.request()
+    .input('novelId', sql.Int, id)
+    .input('userId', sql.NVarChar, userId)
+    .query(`
+      SELECT a.id, a.title, a.chapter_number, a.word_count, a.reading_time,
+        rp.scroll_position, rp.current_sentence, rp.completed, rp.last_read_at
+      FROM articles a
+      LEFT JOIN reading_progress rp ON a.id = rp.article_id AND rp.user_id = @userId
+      WHERE a.novel_id = @novelId
+      ORDER BY a.chapter_number ASC
+    `);
+
+  return {
+    ...mapRow(novelResult.recordset[0]),
+    chapters: chaptersResult.recordset.map(mapRow),
+  };
+}
+
+export async function createNovel(novel: {
+  title: string;
+  author?: string;
+  cover_image_url?: string;
+  description?: string;
+  difficulty?: string;
+}) {
+  const p = await getPool();
+  const result = await p.request()
+    .input('title', sql.NVarChar, novel.title)
+    .input('author', sql.NVarChar, novel.author || null)
+    .input('cover_image_url', sql.NVarChar, novel.cover_image_url || null)
+    .input('description', sql.NVarChar(sql.MAX), novel.description || null)
+    .input('difficulty', sql.NVarChar, novel.difficulty || 'intermediate')
+    .query(`
+      INSERT INTO novels (title, author, cover_image_url, description, difficulty)
+      VALUES (@title, @author, @cover_image_url, @description, @difficulty);
+      SELECT SCOPE_IDENTITY() AS id;
+    `);
+  return result.recordset[0].id;
+}
+
+export async function updateNovel(id: number, fields: {
+  title?: string;
+  author?: string;
+  cover_image_url?: string;
+  description?: string;
+  difficulty?: string;
+}): Promise<boolean> {
+  const p = await getPool();
+  const sets: string[] = [];
+  const req = p.request().input('id', sql.Int, id);
+  if (fields.title !== undefined) { req.input('title', sql.NVarChar, fields.title); sets.push('title = @title'); }
+  if (fields.author !== undefined) { req.input('author', sql.NVarChar, fields.author); sets.push('author = @author'); }
+  if (fields.cover_image_url !== undefined) { req.input('cover_image_url', sql.NVarChar, fields.cover_image_url); sets.push('cover_image_url = @cover_image_url'); }
+  if (fields.description !== undefined) { req.input('description', sql.NVarChar(sql.MAX), fields.description); sets.push('description = @description'); }
+  if (fields.difficulty !== undefined) { req.input('difficulty', sql.NVarChar, fields.difficulty); sets.push('difficulty = @difficulty'); }
+  if (sets.length === 0) return false;
+  const result = await req.query(`UPDATE novels SET ${sets.join(', ')} WHERE id = @id`);
+  return result.rowsAffected[0] > 0;
+}
+
+export async function deleteNovel(id: number) {
+  const p = await getPool();
+  return p.request()
+    .input('id', sql.Int, id)
+    .query('DELETE FROM novels WHERE id = @id');
+}
+
+export async function createChapter(novelId: number, chapter: {
+  title: string;
+  content: string;
+  chapter_number: number;
+}) {
+  const p = await getPool();
+  const wordCount = chapter.content.split(/\s+/).filter(Boolean).length;
+  const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+  const result = await p.request()
+    .input('title', sql.NVarChar, chapter.title)
+    .input('content', sql.NVarChar(sql.MAX), chapter.content)
+    .input('summary', sql.NVarChar(sql.MAX), chapter.content.substring(0, 200) + '...')
+    .input('novel_id', sql.Int, novelId)
+    .input('chapter_number', sql.Int, chapter.chapter_number)
+    .input('word_count', sql.Int, wordCount)
+    .input('reading_time', sql.Int, readingTime)
+    .query(`
+      INSERT INTO articles (title, content, summary, novel_id, chapter_number, word_count, reading_time)
+      VALUES (@title, @content, @summary, @novel_id, @chapter_number, @word_count, @reading_time);
+      SELECT SCOPE_IDENTITY() AS id;
+    `);
+
+  // Update total_chapters count
+  await p.request()
+    .input('novelId', sql.Int, novelId)
+    .query('UPDATE novels SET total_chapters = (SELECT COUNT(*) FROM articles WHERE novel_id = @novelId) WHERE id = @novelId');
+
+  return result.recordset[0].id;
 }
 

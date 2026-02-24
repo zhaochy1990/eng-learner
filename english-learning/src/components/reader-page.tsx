@@ -1,0 +1,530 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArticleReader,
+  loadSettings,
+  saveSettings,
+  type ReaderSettings,
+  type FontSize,
+  type LineSpacing,
+} from "@/components/article-reader";
+import { TTSPlayer } from "@/components/tts-player";
+import { useTTS } from "@/hooks/use-tts";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import type { Article } from "@/lib/types";
+import { VocabularySidebar, filterVocabularyByArticle, type VocabularyItem } from "@/components/vocabulary-sidebar";
+import type { SavedWordInfo } from "@/components/word-popover";
+import { apiUrl, apiFetch } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth-client";
+import { useAuth } from "@/contexts/auth-context";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Clock,
+  BookOpen,
+  Loader2,
+  AudioLines,
+  Trash2,
+  ALargeSmall,
+  RefreshCw,
+  Languages,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+export interface ChapterNav {
+  prevId?: number;
+  nextId?: number;
+  novelId: number;
+  currentChapter: number;
+  totalChapters: number;
+}
+
+interface ReaderPageProps {
+  articleId: string;
+  backUrl: string;
+  backLabel: string;
+  chapterNav?: ChapterNav;
+  showDelete?: boolean;
+}
+
+export function ReaderPage({ articleId, backUrl, backLabel, chapterNav, showDelete = true }: ReaderPageProps) {
+  const router = useRouter();
+
+  const [article, setArticle] = useState<Article | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number | undefined>(undefined);
+  const [showTTS, setShowTTS] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translation, setTranslation] = useState<string | null>(null);
+  const [translationLoading, setTranslationLoading] = useState(false);
+  const [readerSettings, setReaderSettings] = useState<ReaderSettings>(loadSettings);
+  const [showSettings, setShowSettings] = useState(false);
+  const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([]);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const { role } = useAuth();
+
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedScrollRef = useRef<number>(0);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    saveSettings(readerSettings);
+  }, [readerSettings]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    }
+    if (showSettings) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [showSettings]);
+
+  useEffect(() => {
+    apiFetch("/api/vocabulary")
+      .then((res) => res.json())
+      .then((data: VocabularyItem[]) => {
+        setVocabularyItems(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch vocabulary:", err);
+      });
+  }, []);
+
+  const savedWords = useMemo(
+    () => new Set(vocabularyItems.map((w) => w.word.toLowerCase())),
+    [vocabularyItems]
+  );
+
+  const articleVocabulary = useMemo(
+    () => (article ? filterVocabularyByArticle(vocabularyItems, article.content) : []),
+    [vocabularyItems, article]
+  );
+
+  const handleWordSaved = useCallback((word: string, info: SavedWordInfo) => {
+    setVocabularyItems((prev) => {
+      if (prev.some((v) => v.word.toLowerCase() === word.toLowerCase())) return prev;
+      return [...prev, info];
+    });
+  }, []);
+
+  const handleDelete = useCallback(async () => {
+    const confirmed = window.confirm("Delete this article? This cannot be undone.");
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      const res = await apiFetch(`/api/articles/${articleId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push(backUrl);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }, [articleId, router, backUrl]);
+
+  const handleTranslationToggle = useCallback(async () => {
+    if (translation) {
+      setShowTranslation((v) => !v);
+      return;
+    }
+    setTranslationLoading(true);
+    try {
+      const res = await apiFetch(`/api/articles/${articleId}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTranslation(data.translation);
+        setShowTranslation(true);
+      }
+    } catch (err) {
+      console.error("Failed to generate translation:", err);
+    } finally {
+      setTranslationLoading(false);
+    }
+  }, [articleId, translation]);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setArticle(null);
+    setTranslation(null);
+    setShowTranslation(false);
+    setCurrentSentenceIndex(undefined);
+    completedRef.current = false;
+
+    apiFetch(`/api/articles/${articleId}`)
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 404) throw new Error("Article not found");
+          throw new Error("Failed to load article");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setArticle(data);
+        if (data.translation) {
+          setTranslation(data.translation);
+        }
+        if (data.completed === 1) {
+          completedRef.current = true;
+        }
+        if (data.scroll_position && data.scroll_position > 0) {
+          requestAnimationFrame(() => {
+            window.scrollTo({
+              top: data.scroll_position,
+              behavior: "instant",
+            });
+          });
+        }
+        if (data.current_sentence !== undefined && data.current_sentence > 0) {
+          setCurrentSentenceIndex(data.current_sentence);
+        }
+      })
+      .catch((err) => {
+        setError(err.message);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [articleId]);
+
+  const saveProgress = useCallback(
+    (scrollPos: number) => {
+      apiFetch(`/api/articles/${articleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scroll_position: scrollPos,
+          current_sentence: currentSentenceIndex ?? 0,
+        }),
+      }).catch((err) => {
+        console.error("Failed to save reading progress:", err);
+      });
+    },
+    [articleId, currentSentenceIndex]
+  );
+
+  useEffect(() => {
+    function handleScroll() {
+      const scrollPos = window.scrollY;
+
+      if (Math.abs(scrollPos - lastSavedScrollRef.current) < 100) return;
+
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+
+      saveTimerRef.current = setTimeout(() => {
+        lastSavedScrollRef.current = scrollPos;
+        saveProgress(scrollPos);
+      }, 2000);
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [saveProgress]);
+
+  useEffect(() => {
+    return () => {
+      const scrollPos = window.scrollY;
+      const data = JSON.stringify({
+        scroll_position: scrollPos,
+        current_sentence: currentSentenceIndex ?? 0,
+      });
+      const token = getAccessToken();
+      fetch(apiUrl(`/api/articles/${articleId}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        body: data,
+        keepalive: true,
+      }).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articleId]);
+
+  useEffect(() => {
+    function handleScroll() {
+      if (completedRef.current) return;
+
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY;
+      const clientHeight = window.innerHeight;
+
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        completedRef.current = true;
+        apiFetch(`/api/articles/${articleId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ completed: true }),
+        }).catch((err) => {
+          console.error("Failed to mark article complete:", err);
+          completedRef.current = false;
+        });
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [articleId]);
+
+  const tts = useTTS({
+    text: article?.content || "",
+    onSentenceChange: (idx) => setCurrentSentenceIndex(idx),
+  });
+
+  const jumpToSentenceRef = useRef(tts.jumpToSentence);
+  jumpToSentenceRef.current = tts.jumpToSentence;
+
+  const handleSentenceChange = useCallback((sentenceIndex: number) => {
+    setCurrentSentenceIndex(sentenceIndex);
+    jumpToSentenceRef.current(sentenceIndex);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading article...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !article) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <BookOpen className="h-12 w-12 text-muted-foreground/50" />
+          <div>
+            <h2 className="text-lg font-semibold mb-1">
+              {error || "Article not found"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              The article you are looking for could not be loaded.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => router.push(backUrl)}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            {backLabel}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto pb-24 lg:flex lg:gap-8">
+      <div className="min-w-0 flex-1 max-w-3xl">
+      {/* Header bar */}
+      <div className="flex items-center justify-between mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(backUrl)}
+          className="gap-1.5 -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {backLabel}
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showTTS ? "default" : "outline"}
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setShowTTS((v) => !v)}
+          >
+            <AudioLines className="h-4 w-4" />
+            {showTTS ? "Hide Player" : "Listen"}
+          </Button>
+          <Button
+            variant={showTranslation ? "default" : "outline"}
+            size="sm"
+            className="gap-1.5"
+            onClick={handleTranslationToggle}
+            disabled={translationLoading}
+          >
+            {translationLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Languages className="h-4 w-4" />
+            )}
+            {translationLoading ? "Translating..." : showTranslation ? "Hide CN" : "CN"}
+          </Button>
+          <div className="relative" ref={settingsRef}>
+            <Button
+              variant={showSettings ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowSettings((v) => !v)}
+              className="gap-1.5"
+            >
+              <ALargeSmall className="h-4 w-4" />
+              Aa
+            </Button>
+            {showSettings && (
+              <div className="absolute top-full right-0 mt-1 z-50 w-64 rounded-lg border bg-popover p-4 shadow-lg animate-in fade-in-0 zoom-in-95">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium mb-2">Font Size</p>
+                    <div className="flex gap-1">
+                      {(["small", "medium", "large"] as FontSize[]).map((size) => (
+                        <Button
+                          key={size}
+                          variant={readerSettings.fontSize === size ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1 capitalize"
+                          onClick={() => setReaderSettings((s) => ({ ...s, fontSize: size }))}
+                        >
+                          {size}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-2">Line Spacing</p>
+                    <div className="flex gap-1">
+                      {(["compact", "normal", "relaxed"] as LineSpacing[]).map((spacing) => (
+                        <Button
+                          key={spacing}
+                          variant={readerSettings.lineSpacing === spacing ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1 capitalize"
+                          onClick={() => setReaderSettings((s) => ({ ...s, lineSpacing: spacing }))}
+                        >
+                          {spacing}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          {role === "admin" && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={tts.refresh}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh TTS
+              </Button>
+              {showDelete && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Delete
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Article metadata */}
+      <div className="mb-6">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          {article.difficulty && (
+            <Badge variant="outline" className="capitalize">
+              {article.difficulty}
+            </Badge>
+          )}
+          {article.category && (
+            <Badge variant="secondary" className="capitalize">
+              {article.category}
+            </Badge>
+          )}
+          {article.word_count != null && article.word_count > 0 && (
+            <span className="flex items-center gap-1">
+              <BookOpen className="h-3.5 w-3.5" />
+              {article.word_count} words
+            </span>
+          )}
+          {article.reading_time != null && article.reading_time > 0 && (
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              {article.reading_time} min read
+            </span>
+          )}
+        </div>
+      </div>
+
+      <Separator className="mb-8" />
+
+      {/* Article reader */}
+      <ArticleReader
+        article={article}
+        currentSentenceIndex={currentSentenceIndex}
+        onSentenceChange={handleSentenceChange}
+        settings={readerSettings}
+        translation={translation}
+        showTranslation={showTranslation}
+        savedWords={savedWords}
+        onWordSaved={handleWordSaved}
+      />
+
+      {/* TTS Player */}
+      {showTTS && <TTSPlayer {...tts} />}
+
+      {/* Chapter navigation */}
+      {chapterNav && (
+        <>
+          <Separator className="my-8" />
+          <div className="flex items-center justify-between">
+            {chapterNav.prevId ? (
+              <Link href={`/novels/${chapterNav.novelId}/chapters/${chapterNav.prevId}`}>
+                <Button variant="outline" className="gap-1.5">
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous Chapter
+                </Button>
+              </Link>
+            ) : (
+              <div />
+            )}
+            <span className="text-sm text-muted-foreground">
+              Chapter {chapterNav.currentChapter} / {chapterNav.totalChapters}
+            </span>
+            {chapterNav.nextId ? (
+              <Link href={`/novels/${chapterNav.novelId}/chapters/${chapterNav.nextId}`}>
+                <Button variant="outline" className="gap-1.5">
+                  Next Chapter
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <div />
+            )}
+          </div>
+        </>
+      )}
+      </div>
+      <VocabularySidebar words={articleVocabulary} />
+    </div>
+  );
+}

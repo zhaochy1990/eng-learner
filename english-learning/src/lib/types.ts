@@ -13,10 +13,40 @@ export interface Article {
   created_at?: string;
   updated_at?: string;
   translation?: string | null;
+  novel_id?: number | null;
+  chapter_number?: number | null;
   // From reading_progress join
   scroll_position?: number | null;
   completed?: number | null;
   current_sentence?: number | null;
+}
+
+export interface Novel {
+  id: number;
+  title: string;
+  author?: string;
+  cover_image_url?: string | null;
+  description?: string;
+  difficulty: string;
+  total_chapters: number;
+  created_at?: string;
+  chapter_count?: number;
+  total_word_count?: number;
+  completed_chapters?: number;
+  last_read_at?: string | null;
+  chapters?: NovelChapter[];
+}
+
+export interface NovelChapter {
+  id: number;
+  title: string;
+  chapter_number: number;
+  word_count: number;
+  reading_time: number;
+  scroll_position?: number | null;
+  current_sentence?: number | null;
+  completed?: number | null;
+  last_read_at?: string | null;
 }
 
 export interface VocabularyItem {
