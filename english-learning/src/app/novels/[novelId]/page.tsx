@@ -47,7 +47,7 @@ function getChapterStatus(chapter: NovelChapter): "completed" | "in-progress" | 
 }
 
 export default function NovelDetailPage() {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ novelId: string }>();
   const router = useRouter();
   const { role } = useAuth();
   const isAdmin = role === "admin";
@@ -68,7 +68,7 @@ export default function NovelDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`/api/novels/${params.id}`);
+      const res = await apiFetch(`/api/novels/${params.novelId}`);
       if (!res.ok) {
         setError(res.status === 404 ? "Novel not found." : "Failed to load novel.");
         return;
@@ -80,7 +80,7 @@ export default function NovelDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [params.novelId]);
 
   useEffect(() => {
     fetchNovel();
@@ -90,7 +90,7 @@ export default function NovelDetailPage() {
     if (!chapterTitle.trim() || !chapterContent.trim()) return;
     setSubmitting(true);
     try {
-      const res = await apiFetch(`/api/novels/${params.id}/chapters`, {
+      const res = await apiFetch(`/api/novels/${params.novelId}/chapters`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -112,7 +112,7 @@ export default function NovelDetailPage() {
   async function handleDeleteNovel() {
     setDeleting(true);
     try {
-      const res = await apiFetch(`/api/novels/${params.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/novels/${params.novelId}`, { method: "DELETE" });
       if (res.ok) {
         router.push("/novels");
       }
