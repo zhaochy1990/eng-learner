@@ -28,6 +28,7 @@ const CATEGORY_OPTIONS = [
   { value: "tech", label: "Tech" },
   { value: "daily", label: "Daily" },
   { value: "news", label: "News" },
+  { value: "novel", label: "Novel" },
 ];
 
 const ARTICLE_TYPE_OPTIONS = [

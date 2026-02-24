@@ -43,5 +43,5 @@ export type ArticleType = typeof VALID_ARTICLE_TYPES[number];
 export const VALID_DIFFICULTIES = ['beginner', 'intermediate', 'advanced'] as const;
 export type Difficulty = typeof VALID_DIFFICULTIES[number];
 
-export const VALID_CATEGORIES = ['business', 'tech', 'daily', 'news', 'general'] as const;
+export const VALID_CATEGORIES = ['business', 'tech', 'daily', 'news', 'general', 'novel'] as const;
 export type Category = typeof VALID_CATEGORIES[number];
