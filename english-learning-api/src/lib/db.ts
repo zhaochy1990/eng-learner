@@ -364,11 +364,11 @@ export async function saveWord(userId: string, word: {
     .input('context_sentence', sql.NVarChar(sql.MAX), word.context_sentence || null)
     .input('context_article_id', sql.Int, word.context_article_id || null)
     .query(`
-      MERGE vocabulary AS target
+      MERGE vocabulary WITH (HOLDLOCK) AS target
       USING (SELECT @user_id AS user_id, @word AS word) AS source
       ON target.user_id = source.user_id AND target.word = source.word
       WHEN MATCHED THEN
-        UPDATE SET id = target.id
+        UPDATE SET id = target.id  -- no-op required by MERGE syntax to enable OUTPUT $action
       WHEN NOT MATCHED THEN
         INSERT (user_id, word, phonetic, translation, pos, definition, context_sentence, context_article_id)
         VALUES (@user_id, @word, @phonetic, @translation, @pos, @definition, @context_sentence, @context_article_id)

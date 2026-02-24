@@ -118,8 +118,7 @@ Return ONLY valid JSON, no other text.`;
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let parsed: any;
+    let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(message);
     } catch {
@@ -128,11 +127,11 @@ Return ONLY valid JSON, no other text.`;
     }
 
     // Validate and default difficulty/category
-    const difficulty: Difficulty = VALID_DIFFICULTIES.includes(parsed.difficulty)
-      ? parsed.difficulty
+    const difficulty: Difficulty = (VALID_DIFFICULTIES as readonly string[]).includes(String(parsed.difficulty))
+      ? (parsed.difficulty as Difficulty)
       : 'intermediate';
-    const validCategory: Category = VALID_CATEGORIES.includes(parsed.category)
-      ? parsed.category
+    const validCategory: Category = (VALID_CATEGORIES as readonly string[]).includes(String(parsed.category))
+      ? (parsed.category as Category)
       : 'general';
 
     res.json({
