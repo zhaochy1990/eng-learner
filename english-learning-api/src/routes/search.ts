@@ -118,7 +118,14 @@ Return ONLY valid JSON, no other text.`;
       return;
     }
 
-    const parsed = JSON.parse(message);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let parsed: any;
+    try {
+      parsed = JSON.parse(message);
+    } catch {
+      res.status(502).json({ error: 'LLM returned invalid JSON' });
+      return;
+    }
 
     // Validate and default difficulty/category
     const difficulty: Difficulty = VALID_DIFFICULTIES.includes(parsed.difficulty)

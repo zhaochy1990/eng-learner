@@ -16,7 +16,7 @@ router.get('/', async (req: Request, res: Response) => {
     const mode: ReviewMode = (VALID_MODES as readonly string[]).includes(modeParam)
       ? (modeParam as ReviewMode)
       : 'due';
-    const limit = Number(req.query.limit || '30');
+    const limit = Math.min(Math.max(1, Number(req.query.limit) || 30), 100);
 
     const words = await getWordsForReview(req.userId!, mode, limit);
     res.json(words);
@@ -31,8 +31,8 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { wordId, rating, currentLevel } = req.body;
 
-    if (!wordId || !rating) {
-      res.status(400).json({ error: 'wordId and rating are required' });
+    if (!wordId || !Number.isInteger(wordId) || wordId < 1 || !rating) {
+      res.status(400).json({ error: 'Valid wordId and rating are required' });
       return;
     }
 
@@ -41,7 +41,8 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const { newLevel, nextReviewAt } = calculateNextReview(currentLevel || 0, rating);
+    const level = Number.isInteger(currentLevel) && currentLevel >= 0 && currentLevel <= 3 ? currentLevel : 0;
+    const { newLevel, nextReviewAt } = calculateNextReview(level, rating);
     await updateWordReview(req.userId!, wordId, newLevel, nextReviewAt);
 
     res.json({ newLevel, nextReviewAt });
