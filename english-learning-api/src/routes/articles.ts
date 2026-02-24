@@ -5,6 +5,22 @@ import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
+function parseId(raw: string): number | null {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// Validate :id param for all sub-routes
+router.param('id', (req, res, next, value) => {
+  const id = parseId(value);
+  if (id === null) {
+    res.status(400).json({ error: 'Invalid article ID' });
+    return;
+  }
+  req.articleId = id;
+  next();
+});
+
 // GET /api/articles
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -66,7 +82,7 @@ router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
 // GET /api/articles/:id
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const article = await getArticleById(req.userId!, Number(req.params.id));
+    const article = await getArticleById(req.userId!, req.articleId!);
 
     if (!article) {
       res.status(404).json({ error: 'Article not found' });
@@ -100,7 +116,7 @@ router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => 
       return;
     }
 
-    const updated = await updateArticle(Number(req.params.id), {
+    const updated = await updateArticle(req.articleId!, {
       title: body.title,
       summary: body.summary,
       difficulty: body.difficulty,
@@ -121,7 +137,7 @@ router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => 
 // DELETE /api/articles/:id
 router.delete('/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await deleteArticle(Number(req.params.id));
+    await deleteArticle(req.articleId!);
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/articles/:id error:', error);
@@ -133,7 +149,7 @@ router.delete('/:id', requireRole('admin'), async (req: Request, res: Response) 
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    await updateReadingProgress(req.userId!, Number(req.params.id), {
+    await updateReadingProgress(req.userId!, req.articleId!, {
       scroll_position: body.scroll_position,
       current_sentence: body.current_sentence,
       completed: body.completed,
@@ -148,7 +164,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 // POST /api/articles/:id/translate — generate Chinese translation
 router.post('/:id/translate', async (req: Request, res: Response) => {
   try {
-    const article = await getArticleById(req.userId!, Number(req.params.id));
+    const article = await getArticleById(req.userId!, req.articleId!);
     if (!article) {
       res.status(404).json({ error: 'Article not found' });
       return;
@@ -215,7 +231,7 @@ Rules:
       return;
     }
 
-    await updateArticleTranslation(Number(req.params.id), translation);
+    await updateArticleTranslation(req.articleId!, translation);
     res.json({ translation });
   } catch (error) {
     console.error('POST /api/articles/:id/translate error:', error);
@@ -227,7 +243,7 @@ Rules:
 router.post('/:id', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    await updateReadingProgress(req.userId!, Number(req.params.id), {
+    await updateReadingProgress(req.userId!, req.articleId!, {
       scroll_position: body.scroll_position,
       current_sentence: body.current_sentence,
       completed: body.completed,
