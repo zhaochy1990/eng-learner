@@ -87,7 +87,12 @@ describe('apiFetch', () => {
     const locationSpy = { href: '' };
     vi.stubGlobal('window', { location: locationSpy });
 
-    await apiFetch('/api/vocabulary');
+    // apiFetch returns a never-resolving promise after redirecting to /login,
+    // so race with a short timeout to avoid hanging
+    await Promise.race([
+      apiFetch('/api/vocabulary'),
+      new Promise((r) => setTimeout(r, 50)),
+    ]);
 
     expect(mockClearTokens).toHaveBeenCalledOnce();
     expect(locationSpy.href).toBe('/login');

@@ -10,6 +10,7 @@ export interface Article {
   reading_time?: number;
   created_at?: string;
   updated_at?: string;
+  article_type?: string;
   translation?: string | null;
   scroll_position?: number | null;
   completed?: number | null;
@@ -32,6 +33,9 @@ export interface VocabularyItem {
   last_reviewed_at: string | null;
   created_at: string;
 }
+
+export const VALID_ARTICLE_TYPES = ['article', 'novel'] as const;
+export type ArticleType = typeof VALID_ARTICLE_TYPES[number];
 
 export const VALID_DIFFICULTIES = ['beginner', 'intermediate', 'advanced'] as const;
 export type Difficulty = typeof VALID_DIFFICULTIES[number];

@@ -30,6 +30,12 @@ const CATEGORY_OPTIONS = [
   { value: "news", label: "News" },
 ];
 
+const ARTICLE_TYPE_OPTIONS = [
+  { value: "all", label: "All Types" },
+  { value: "article", label: "Article" },
+  { value: "novel", label: "Novel" },
+];
+
 const difficultyColor: Record<string, string> = {
   beginner: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   intermediate: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -48,6 +54,7 @@ export default function ArticlesPage() {
   const [loading, setLoading] = useState(true);
   const [difficulty, setDifficulty] = useState("all");
   const [category, setCategory] = useState("all");
+  const [articleType, setArticleType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([]);
@@ -69,15 +76,17 @@ export default function ArticlesPage() {
   }, [articles, vocabularyItems]);
 
   const fetchArticles = useCallback(
-    async (params?: { difficulty?: string; category?: string; search?: string }) => {
+    async (params?: { difficulty?: string; category?: string; search?: string; article_type?: string }) => {
       const d = params?.difficulty ?? difficulty;
       const c = params?.category ?? category;
       const s = params?.search ?? searchQuery;
+      const t = params?.article_type ?? articleType;
 
       const query = new URLSearchParams();
       if (d && d !== "all") query.set("difficulty", d);
       if (c && c !== "all") query.set("category", c);
       if (s.trim()) query.set("search", s.trim());
+      if (t && t !== "all") query.set("article_type", t);
 
       setLoading(true);
       try {
@@ -90,13 +99,13 @@ export default function ArticlesPage() {
         setLoading(false);
       }
     },
-    [difficulty, category, searchQuery]
+    [difficulty, category, searchQuery, articleType]
   );
 
   useEffect(() => {
     fetchArticles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficulty, category]);
+  }, [difficulty, category, articleType]);
 
   function handleSearchChange(value: string) {
     setSearchQuery(value);
@@ -112,6 +121,10 @@ export default function ArticlesPage() {
 
   function handleCategoryChange(value: string) {
     setCategory(value);
+  }
+
+  function handleArticleTypeChange(value: string) {
+    setArticleType(value);
   }
 
   function handleArticleAdded() {
@@ -171,6 +184,20 @@ export default function ArticlesPage() {
             </Button>
           ))}
         </div>
+
+        {/* Article type filters */}
+        <div className="flex flex-wrap gap-2">
+          {ARTICLE_TYPE_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              variant={articleType === option.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleArticleTypeChange(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Article List */}
@@ -185,11 +212,11 @@ export default function ArticlesPage() {
             No articles found
           </h2>
           <p className="mt-1 text-sm text-muted-foreground/80">
-            {searchQuery || difficulty !== "all" || category !== "all"
+            {searchQuery || difficulty !== "all" || category !== "all" || articleType !== "all"
               ? "Try adjusting your filters or search query."
               : "Add your first article to get started."}
           </p>
-          {isAdmin && !searchQuery && difficulty === "all" && category === "all" && (
+          {isAdmin && !searchQuery && difficulty === "all" && category === "all" && articleType === "all" && (
             <Button className="mt-4" onClick={() => setDialogOpen(true)}>
               <Plus className="size-4" />
               Add Article
@@ -212,15 +239,22 @@ export default function ArticlesPage() {
                             {article.title}
                           </Link>
                         </h3>
-                        {article.difficulty && (
-                        <Badge
-                          variant="secondary"
-                          className={`shrink-0 ${difficultyColor[article.difficulty] || ""}`}
-                        >
-                          {article.difficulty.charAt(0).toUpperCase() +
-                            article.difficulty.slice(1)}
-                        </Badge>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {article.article_type === "novel" && (
+                            <Badge variant="outline" className="text-xs">
+                              Novel
+                            </Badge>
+                          )}
+                          {article.difficulty && (
+                            <Badge
+                              variant="secondary"
+                              className={difficultyColor[article.difficulty] || ""}
+                            >
+                              {article.difficulty.charAt(0).toUpperCase() +
+                                article.difficulty.slice(1)}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-0 mt-2">

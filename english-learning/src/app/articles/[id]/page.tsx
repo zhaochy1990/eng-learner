@@ -17,6 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { Article } from "@/lib/types";
 import { VocabularySidebar, filterVocabularyByArticle, type VocabularyItem } from "@/components/vocabulary-sidebar";
+import { ChapterNav } from "@/components/chapter-nav";
+import { parseChapters } from "@/lib/chapter-utils";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
 import type { SavedWordInfo } from "@/components/word-popover";
 import { apiUrl, apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth-client";
@@ -31,6 +35,8 @@ import {
   ALargeSmall,
   RefreshCw,
   Languages,
+  List,
+  BookMarked,
 } from "lucide-react";
 
 export default function ArticleReaderPage() {
@@ -95,6 +101,59 @@ export default function ArticleReaderPage() {
     () => (article ? filterVocabularyByArticle(vocabularyItems, article.content) : []),
     [vocabularyItems, article]
   );
+
+  const isNovel = article?.article_type === "novel";
+  const chapters = useMemo(
+    () => (isNovel && article ? parseChapters(article.content) : []),
+    [isNovel, article]
+  );
+  const [currentChapter, setCurrentChapter] = useState(-1);
+
+  // Track current chapter from scroll position (throttled via rAF)
+  useEffect(() => {
+    if (!isNovel || chapters.length === 0) return;
+
+    let rafId = 0;
+
+    function updateChapter() {
+      const headings = chapters.map((ch) =>
+        document.getElementById(`chapter-${ch.paragraphIndex}`)
+      );
+      let activeIdx = -1;
+      for (let i = headings.length - 1; i >= 0; i--) {
+        const el = headings[i];
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= 120) {
+            activeIdx = i;
+            break;
+          }
+        }
+      }
+      setCurrentChapter(activeIdx);
+      rafId = 0;
+    }
+
+    function handleScroll() {
+      if (!rafId) {
+        rafId = requestAnimationFrame(updateChapter);
+      }
+    }
+
+    updateChapter();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isNovel, chapters]);
+
+  const handleChapterClick = useCallback((paragraphIndex: number) => {
+    const el = document.getElementById(`chapter-${paragraphIndex}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   const handleWordSaved = useCallback((word: string, info: SavedWordInfo) => {
     setVocabularyItems((prev) => {
@@ -476,6 +535,7 @@ export default function ArticleReaderPage() {
       {/* Article reader */}
       <ArticleReader
         article={article}
+        articleType={article.article_type}
         currentSentenceIndex={currentSentenceIndex}
         onSentenceChange={handleSentenceChange}
         settings={readerSettings}
@@ -488,7 +548,36 @@ export default function ArticleReaderPage() {
       {/* TTS Player */}
       {showTTS && <TTSPlayer {...tts} />}
       </div>
-      <VocabularySidebar words={articleVocabulary} />
+      {isNovel && chapters.length > 0 ? (
+        <aside className="sticky top-6 hidden lg:block w-80 min-w-72 max-w-96 shrink-0">
+          <Card className="p-0">
+            <Tabs defaultValue="chapters">
+              <TabsList className="w-full rounded-b-none">
+                <TabsTrigger value="chapters" className="flex items-center gap-1.5">
+                  <List className="size-3.5" />
+                  Chapters
+                </TabsTrigger>
+                <TabsTrigger value="vocabulary" className="flex items-center gap-1.5">
+                  <BookMarked className="size-3.5" />
+                  Vocabulary
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="chapters" className="p-3 pt-2 max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-hide">
+                <ChapterNav
+                  chapters={chapters}
+                  currentChapter={currentChapter}
+                  onChapterClick={handleChapterClick}
+                />
+              </TabsContent>
+              <TabsContent value="vocabulary" className="p-0">
+                <VocabularySidebar words={articleVocabulary} bare />
+              </TabsContent>
+            </Tabs>
+          </Card>
+        </aside>
+      ) : (
+        <VocabularySidebar words={articleVocabulary} />
+      )}
     </div>
   );
 }
