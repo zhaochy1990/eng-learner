@@ -19,7 +19,6 @@ export type { Article } from "@/lib/types";
 
 interface ArticleReaderProps {
   article: Article;
-  articleType?: string;
   currentSentenceIndex?: number;
   onSentenceChange?: (sentenceIndex: number) => void;
   settings: ReaderSettings;
@@ -164,7 +163,6 @@ const lineSpacingClasses: Record<LineSpacing, string> = {
 
 export function ArticleReader({
   article,
-  articleType,
   currentSentenceIndex,
   onSentenceChange,
   settings,
@@ -362,7 +360,7 @@ export function ArticleReader({
         )}
       >
         {paragraphs.map((paragraph) => {
-          const isChapterHeading = articleType === "novel" && paragraph.raw.trimStart().startsWith("## ");
+          const isChapterHeading = article.article_type === "novel" && paragraph.raw.trimStart().startsWith("## ");
           const chapterWords = isChapterHeading
             ? tokeniseWords(paragraph.raw.trimStart().slice(3))
             : null;

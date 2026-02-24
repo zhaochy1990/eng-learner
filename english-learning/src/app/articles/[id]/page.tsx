@@ -535,7 +535,6 @@ export default function ArticleReaderPage() {
       {/* Article reader */}
       <ArticleReader
         article={article}
-        articleType={article.article_type}
         currentSentenceIndex={currentSentenceIndex}
         onSentenceChange={handleSentenceChange}
         settings={readerSettings}
