@@ -43,6 +43,34 @@ export type Difficulty = typeof VALID_DIFFICULTIES[number];
 export const VALID_CATEGORIES = ['business', 'tech', 'daily', 'news', 'general', 'novel'] as const;
 export type Category = typeof VALID_CATEGORIES[number];
 
+export interface Novel {
+  id: number;
+  title: string;
+  author?: string;
+  cover_image_url?: string | null;
+  description?: string;
+  difficulty: string;
+  total_chapters: number;
+  created_at?: string;
+  // Computed from joins
+  chapter_count?: number;
+  total_word_count?: number;
+  completed_chapters?: number;
+  last_read_at?: string | null;
+}
+
+export interface NovelChapter {
+  id: number;
+  title: string;
+  chapter_number: number;
+  word_count: number;
+  reading_time: number;
+  scroll_position?: number | null;
+  current_sentence?: number | null;
+  completed?: number | null;
+  last_read_at?: string | null;
+}
+
 export interface SearchResult {
   title: string;
   url: string;

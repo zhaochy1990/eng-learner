@@ -10,6 +10,7 @@ import dictionaryRouter from './routes/dictionary';
 import translateRouter from './routes/translate';
 import statsRouter from './routes/stats';
 import searchRouter from './routes/search';
+import novelsRouter from './routes/novels';
 import { requireAuth } from './middleware/auth';
 
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/vocabulary/review', reviewRouter);
 app.use('/api/vocabulary/export', exportRouter);
 app.use('/api/vocabulary', vocabularyRouter);
 app.use('/api/articles', articlesRouter);
+app.use('/api/novels', novelsRouter);
 app.use('/api/dictionary', dictionaryRouter);
 app.use('/api/translate', translateRouter);
 app.use('/api/stats', statsRouter);

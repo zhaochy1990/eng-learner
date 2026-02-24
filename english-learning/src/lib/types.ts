@@ -14,10 +14,40 @@ export interface Article {
   updated_at?: string;
   article_type?: string;
   translation?: string | null;
+  novel_id?: number | null;
+  chapter_number?: number | null;
   // From reading_progress join
   scroll_position?: number | null;
   completed?: number | null;
   current_sentence?: number | null;
+}
+
+export interface Novel {
+  id: number;
+  title: string;
+  author?: string;
+  cover_image_url?: string | null;
+  description?: string;
+  difficulty: string;
+  total_chapters: number;
+  created_at?: string;
+  chapter_count?: number;
+  total_word_count?: number;
+  completed_chapters?: number;
+  last_read_at?: string | null;
+  chapters?: NovelChapter[];
+}
+
+export interface NovelChapter {
+  id: number;
+  title: string;
+  chapter_number: number;
+  word_count: number;
+  reading_time: number;
+  scroll_position?: number | null;
+  current_sentence?: number | null;
+  completed?: number | null;
+  last_read_at?: string | null;
 }
 
 export interface VocabularyItem {
@@ -45,3 +75,9 @@ export type Difficulty = typeof VALID_DIFFICULTIES[number];
 
 export const VALID_CATEGORIES = ['business', 'tech', 'daily', 'news', 'general', 'novel'] as const;
 export type Category = typeof VALID_CATEGORIES[number];
+
+export const DIFFICULTY_COLOR: Record<string, string> = {
+  beginner: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  intermediate: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  advanced: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
