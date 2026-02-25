@@ -9,6 +9,7 @@ function buildConfig(): sql.config {
       encrypt: process.env.DB_ENCRYPT !== 'false',
       trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
     },
+    connectionTimeout: 60000,
     pool: { max: 10, min: 1, idleTimeoutMillis: 30000 },
   };
 
