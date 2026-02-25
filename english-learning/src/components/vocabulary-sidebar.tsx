@@ -56,7 +56,7 @@ export function VocabularySidebar({ words, bare }: VocabularySidebarProps) {
               </p>
             </div>
           ) : (
-            <ul className="max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-hide space-y-3">
+            <ul className="space-y-3">
               {words.map((item) => (
                 <li key={item.word} className="text-sm">
                   <div className="flex items-center gap-1">
@@ -89,7 +89,7 @@ export function VocabularySidebar({ words, bare }: VocabularySidebarProps) {
   if (bare) return card;
 
   return (
-    <aside className="sticky top-6 hidden lg:block w-80 min-w-72 max-w-96 shrink-0">
+    <aside className="hidden lg:block w-80 min-w-72 max-w-96 shrink-0">
       {card}
     </aside>
   );
