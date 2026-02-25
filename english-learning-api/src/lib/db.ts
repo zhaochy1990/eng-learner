@@ -400,7 +400,7 @@ export async function saveWord(userId: string, word: {
       USING (SELECT @user_id AS user_id, @word AS word) AS source
       ON target.user_id = source.user_id AND target.word = source.word
       WHEN MATCHED THEN
-        UPDATE SET id = target.id  -- no-op required by MERGE syntax to enable OUTPUT $action
+        UPDATE SET word = target.word  -- no-op required by MERGE syntax to enable OUTPUT $action
       WHEN NOT MATCHED THEN
         INSERT (user_id, word, phonetic, translation, pos, definition, context_sentence, context_article_id)
         VALUES (@user_id, @word, @phonetic, @translation, @pos, @definition, @context_sentence, @context_article_id)
