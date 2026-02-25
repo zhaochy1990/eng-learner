@@ -36,7 +36,7 @@ export default function LoginPage() {
           <div className="flex justify-center mb-2">
             <BookOpen className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Sign in to EnglishApp</CardTitle>
+          <CardTitle className="text-2xl">Sign in to English Learning</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

@@ -29,7 +29,7 @@ export function NavBar() {
       <div className="container mx-auto flex h-14 items-center px-4">
         <Link href="/" className="mr-8 flex items-center space-x-2">
           <BookOpen className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg">EnglishApp</span>
+          <span className="font-bold text-lg">English Learning</span>
         </Link>
         <nav className="flex items-center space-x-1">
           {navItems.map((item) => {
