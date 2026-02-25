@@ -19,16 +19,21 @@ export function filterVocabularyByArticle(
   vocabularyItems: VocabularyItem[],
   articleContent: string
 ): VocabularyItem[] {
-  const articleBaseForms = new Set<string>();
+  const baseFormFirstPos = new Map<string, number>();
   const words = articleContent.toLowerCase().match(/[a-z'-]+/g) ?? [];
-  for (const w of words) {
-    for (const form of getBaseForms(w)) {
-      articleBaseForms.add(form);
+  for (let i = 0; i < words.length; i++) {
+    for (const form of getBaseForms(words[i])) {
+      if (!baseFormFirstPos.has(form)) {
+        baseFormFirstPos.set(form, i);
+      }
     }
   }
-  return vocabularyItems.filter((item) =>
-    articleBaseForms.has(item.word.toLowerCase())
-  );
+  return vocabularyItems
+    .filter((item) => baseFormFirstPos.has(item.word.toLowerCase()))
+    .sort((a, b) =>
+      (baseFormFirstPos.get(a.word.toLowerCase()) ?? 0) -
+      (baseFormFirstPos.get(b.word.toLowerCase()) ?? 0)
+    );
 }
 
 interface VocabularySidebarProps {
